@@ -54,6 +54,7 @@ services:
       OLLAMA_BASE_URL: http://host.docker.internal:11434
     volumes:
       - ./data:/app/data        # sample documents for `make seed`
+      - llm_cache:/app/.cache/llm   # LLM extraction cache: re-ingesting never re-calls the LLM
     extra_hosts:
       - "host.docker.internal:host-gateway"   # lets the container reach Ollama on your machine (Linux)
     ports:
@@ -85,6 +86,7 @@ services:
     restart: unless-stopped
 
 volumes:
+  llm_cache:
   qdrant_data:
   neo4j_data:
   neo4j_plugins:

@@ -3,7 +3,7 @@ import uuid
 from qdrant_client import QdrantClient, models
 
 from graphrag.config import Settings
-from graphrag.models import Chunk, RetrievedChunk
+from graphrag.models import Chunk, RetrievedChunk, SimilarDocument
 
 # HNSW graph settings (Qdrant defaults, set explicitly so they're documented):
 #   m = edges per node (recall vs memory), ef_construct = build-time search width (recall vs build time)
@@ -109,3 +109,24 @@ class QdrantStore:
             with_payload=True,
         ).points
         return [RetrievedChunk(chunk=Chunk.model_validate(h.payload), score=h.score) for h in hits]
+
+    def similar_documents(
+        self, centroid: list[float], exclude_doc_id: str, limit: int, min_score: float
+    ) -> list[SimilarDocument]:
+        """Other documents whose best chunk is closest to this document's centroid (one hit per doc_id)."""
+        groups = self.client.query_points_groups(
+            self.collection_name,
+            query=centroid,
+            group_by="doc_id",
+            group_size=1,
+            limit=limit,
+            query_filter=models.Filter(
+                must_not=[models.FieldCondition(key="doc_id", match=models.MatchValue(value=exclude_doc_id))]
+            ),
+            with_payload=["source"],
+        ).groups
+        return [
+            SimilarDocument(doc_id=str(g.id), source=g.hits[0].payload["source"], score=round(g.hits[0].score, 4))
+            for g in groups
+            if g.hits and g.hits[0].score >= min_score and g.hits[0].payload
+        ]

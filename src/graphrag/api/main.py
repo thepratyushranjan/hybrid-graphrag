@@ -28,7 +28,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.pipeline_error = None
     try:
         app.state.qdrant.ensure_collection()
-        app.state.pipeline = IngestionPipeline(settings, build_embedder(settings), app.state.qdrant)
+        app.state.neo4j.ensure_schema()
+        app.state.pipeline = IngestionPipeline(
+            settings, build_embedder(settings), app.state.qdrant, graph_store=app.state.neo4j
+        )
         logger.info("Ingestion ready: %s (%d-dim)", settings.embedding_model, settings.embedding_dim)
     except Exception as exc:  # noqa: BLE001 - keep the server up; /ingest reports the reason
         app.state.pipeline_error = f"{exc.__class__.__name__}: {exc}"

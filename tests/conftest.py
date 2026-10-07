@@ -11,9 +11,9 @@ SAMPLES = Path(__file__).resolve().parent.parent / "data" / "samples"
 
 @pytest.fixture(scope="session")
 def settings() -> Settings:
+    # DB URLs and the Neo4j password come from the container environment (env_file: .env)
     return Settings(  # type: ignore[call-arg]
         _env_file=None,
-        neo4j_password="password123",
         llm_provider="ollama",
         collection_name="test_knowledge_vectors",
     )

@@ -47,6 +47,11 @@ class IngestResult(BaseModel):
     languages: dict[str, int] = Field(default_factory=dict)
     extraction_methods: dict[str, int] = Field(default_factory=dict)
     replaced_points: int = 0  # old points of the same source removed before upsert
+    entities: int = 0  # distinct entities mentioned by this document's chunks
+    relations: int = 0  # LLM relations written to Neo4j
+    dropped_relations: int = 0  # rejected by evidence / confidence / whitelist checks
+    similar_documents: list[str] = Field(default_factory=list)  # sources linked by SIMILAR_TO
+    graph_status: str = "complete"  # or "skipped: <reason>" / "failed: <reason>"
     seconds: float
 
 

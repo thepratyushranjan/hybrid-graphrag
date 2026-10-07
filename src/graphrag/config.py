@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     # LLM & generation
     llm_provider: Literal["openai", "gemini", "ollama"] = "openai"
     llm_model: str = "gpt-4o-mini"
+    llm_reasoning_effort: str | None = None  # "none" disables thinking on Ollama/Gemini thinking models
 
     # Embeddings
     embedding_provider: Literal["huggingface", "openai"] = "huggingface"
@@ -64,6 +65,18 @@ class Settings(BaseSettings):
     # Optional: describe images that have no text (photos, charts) with a vision-capable LLM
     vision_captions_enabled: bool = False
     vision_model: str | None = None  # defaults to LLM_MODEL
+
+    # Knowledge graph (LLM triple extraction)
+    graph_enabled: bool = True
+    extraction_min_confidence: float = Field(default=0.5, ge=0, le=1)
+    known_entities_limit: int = Field(default=200, ge=0)  # existing entity names shown to the LLM for reuse
+    llm_cache_dir: str = "/app/.cache/llm"
+    # (Document)-[:SIMILAR_TO {score}]->(Document) from Qdrant. Score = cosine between a document's
+    # centroid and the best-matching chunk of another document. Threshold is embedding-model specific:
+    # multilingual-e5 puts related docs at ~0.93 and unrelated ones at ~0.87.
+    similar_docs_enabled: bool = True
+    similar_docs_top_n: int = Field(default=3, ge=1)
+    similar_docs_min_score: float = Field(default=0.90, ge=0, le=1)
 
     # Retrieval
     top_k: int = Field(default=4, ge=1)

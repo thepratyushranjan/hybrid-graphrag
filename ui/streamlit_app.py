@@ -57,6 +57,26 @@ def render_graph_facts(facts: list[dict[str, Any]]) -> None:
         )
 
 
+def render_ingest_result(data: dict[str, Any]) -> None:
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Chunks", data.get("chunks", 0))
+    c2.metric("Entities", data.get("entities", 0))
+    c3.metric("Relations", data.get("relations", 0))
+    status = data.get("graph_status", "")
+    if status == "complete":
+        st.caption(f"🕸️ Graph complete · {data.get('dropped_relations', 0)} relations rejected by checks")
+    else:
+        st.warning(f"Graph {status}", icon="⚠️")
+    if data.get("similar_documents"):
+        st.caption("🔗 Similar documents: " + ", ".join(data["similar_documents"]))
+    st.caption(
+        f"Pages: {data.get('pages')} · Languages: {data.get('languages')} · "
+        f"Extraction: {data.get('extraction_methods')}"
+    )
+    with st.expander("Raw response"):
+        st.json(data)
+
+
 def render_assistant(payload: dict[str, Any]) -> None:
     if payload.get("error"):
         st.warning(payload["error"])
@@ -95,8 +115,8 @@ with st.sidebar:
             with st.spinner(f"Ingesting {upload.name}…"):
                 result = client.ingest(upload.name, upload.getvalue(), upload.type or "application/octet-stream")
             if result.ok:
-                st.success(f"{upload.name} ingested")
-                st.json(result.data, expanded=False)
+                st.success(f"{upload.name} ingested in {result.data['seconds']}s")
+                render_ingest_result(result.data)
             elif result.not_implemented:
                 st.info(f"{result.error} (Milestone 5).")
             else:

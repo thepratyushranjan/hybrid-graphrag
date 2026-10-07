@@ -15,7 +15,7 @@ class ApiResult:
 
 
 class ApiClient:
-    def __init__(self, base_url: str, timeout: float = 120.0) -> None:
+    def __init__(self, base_url: str, timeout: float = 900.0) -> None:  # ingest runs LLM extraction
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
 
