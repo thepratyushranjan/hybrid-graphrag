@@ -16,15 +16,18 @@ TEXT = (
 
 
 class FakeLLM:
+    """Returns a canned result; `by_schema` gives different answers per response schema (e.g. query analysis)."""
+
     provider, model = "fake", "fake-1"
 
-    def __init__(self, result: dict) -> None:
+    def __init__(self, result: dict, by_schema: dict[str, dict] | None = None) -> None:
         self.result = result
+        self.by_schema = by_schema or {}
         self.calls = 0
 
-    def complete_json(self, system: str, user: str, schema: type[BaseModel]) -> BaseModel:
+    def complete_json(self, system: str, user: str, schema: type[BaseModel], max_tokens: int = 4096) -> BaseModel:
         self.calls += 1
-        return schema.model_validate(self.result)
+        return schema.model_validate(self.by_schema.get(schema.__name__, self.result))
 
 
 RESULT = {

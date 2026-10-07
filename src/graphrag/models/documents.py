@@ -36,6 +36,10 @@ class Chunk(BaseModel):
     extraction_method: ExtractionMethod = "text"
     ocr_confidence: float | None = None
     image_captions: int = 0
+    # overall span of the date mentions in the text (RFC 3339, for Qdrant datetime indexes); None = undated
+    date_start: str | None = None
+    date_end: str | None = None
+    dates: list[str] = Field(default_factory=list)  # the mentions as written, e.g. "14 October 2025"
 
 
 class IngestResult(BaseModel):

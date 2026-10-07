@@ -3,7 +3,7 @@ import uuid
 from qdrant_client import QdrantClient, models
 
 from graphrag.config import Settings
-from graphrag.models import Chunk, RetrievedChunk, SimilarDocument
+from graphrag.models import Chunk, RetrievedChunk, SimilarDocument, TimeFilter
 
 # HNSW graph settings (Qdrant defaults, set explicitly so they're documented):
 #   m = edges per node (recall vs memory), ef_construct = build-time search width (recall vs build time)
@@ -13,6 +13,7 @@ UPSERT_BATCH = 64
 
 KEYWORD_INDEXES = ("doc_id", "chunk_id", "source", "doc_type", "language", "extraction_method")
 INTEGER_INDEXES = ("page",)
+DATETIME_INDEXES = ("date_start", "date_end")
 
 
 class VectorStoreError(RuntimeError):
@@ -24,10 +25,26 @@ def point_id(chunk_id: str) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_URL, chunk_id))
 
 
-def _match(filters: dict[str, str | int]) -> models.Filter:
-    return models.Filter(
-        must=[models.FieldCondition(key=k, match=models.MatchValue(value=v)) for k, v in filters.items()]
-    )
+def build_filter(
+    filters: dict[str, str] | dict[str, str | int] | None, time_range: TimeFilter | None = None
+) -> models.Filter | None:
+    """Exact-match payload filters plus an optional date-range overlap: the chunk's date span must overlap
+    [start, end]. Undated chunks have no date fields, so a time filter excludes them."""
+    must: list[models.Condition] = [
+        models.FieldCondition(key=k, match=models.MatchValue(value=v)) for k, v in (filters or {}).items()
+    ]
+    if time_range is not None:
+        if time_range.start:
+            must.append(models.FieldCondition(
+                key="date_end", range=models.DatetimeRange(gte=f"{time_range.start.isoformat()}T00:00:00Z")))
+        if time_range.end:
+            must.append(models.FieldCondition(
+                key="date_start", range=models.DatetimeRange(lte=f"{time_range.end.isoformat()}T23:59:59Z")))
+    return models.Filter(must=must) if must else None
+
+
+def _match(filters: dict[str, str | int]) -> models.Filter | None:
+    return build_filter(filters)
 
 
 class QdrantStore:
@@ -44,13 +61,15 @@ class QdrantStore:
 
     def ensure_collection(self) -> None:
         if self.client.collection_exists(self.collection_name):
-            vectors = self.client.get_collection(self.collection_name).config.params.vectors
+            info = self.client.get_collection(self.collection_name)
+            vectors = info.config.params.vectors
             size = vectors.size if isinstance(vectors, models.VectorParams) else None
             if size != self.dim:
                 raise VectorStoreError(
                     f"Collection '{self.collection_name}' has {size}-dim vectors but EMBEDDING_DIM={self.dim}. "
                     "Run `make reset` (deletes data) or use another COLLECTION_NAME."
                 )
+            self._ensure_indexes(set(info.payload_schema))  # collections created before a new index was added
             return
 
         self.client.create_collection(
@@ -58,14 +77,21 @@ class QdrantStore:
             vectors_config=models.VectorParams(size=self.dim, distance=models.Distance.COSINE),
             hnsw_config=models.HnswConfigDiff(m=HNSW_M, ef_construct=HNSW_EF_CONSTRUCT),
         )
-        for field in KEYWORD_INDEXES:
-            self.client.create_payload_index(self.collection_name, field, models.PayloadSchemaType.KEYWORD)
-        for field in INTEGER_INDEXES:
-            self.client.create_payload_index(self.collection_name, field, models.PayloadSchemaType.INTEGER)
+        self._ensure_indexes(set())
 
-    def count(self, filters: dict[str, str | int] | None = None) -> int:
+    def _ensure_indexes(self, existing: set[str]) -> None:
+        for fields, schema in (
+            (KEYWORD_INDEXES, models.PayloadSchemaType.KEYWORD),
+            (INTEGER_INDEXES, models.PayloadSchemaType.INTEGER),
+            (DATETIME_INDEXES, models.PayloadSchemaType.DATETIME),
+        ):
+            for field in fields:
+                if field not in existing:
+                    self.client.create_payload_index(self.collection_name, field, schema)
+
+    def count(self, filters: dict[str, str | int] | None = None, time_range: TimeFilter | None = None) -> int:
         return self.client.count(
-            self.collection_name, count_filter=_match(filters) if filters else None, exact=True
+            self.collection_name, count_filter=build_filter(filters, time_range), exact=True
         ).count
 
     def replace_document(self, chunks: list[Chunk], vectors: list[list[float]]) -> int:
@@ -99,13 +125,17 @@ class QdrantStore:
         return removed
 
     def search(
-        self, vector: list[float], top_k: int, filters: dict[str, str | int] | None = None
+        self,
+        vector: list[float],
+        top_k: int,
+        filters: dict[str, str | int] | None = None,
+        time_range: TimeFilter | None = None,
     ) -> list[RetrievedChunk]:
         hits = self.client.query_points(
             self.collection_name,
             query=vector,
             limit=top_k,
-            query_filter=_match(filters) if filters else None,
+            query_filter=build_filter(filters, time_range),
             with_payload=True,
         ).points
         return [RetrievedChunk(chunk=Chunk.model_validate(h.payload), score=h.score) for h in hits]
@@ -130,3 +160,11 @@ class QdrantStore:
             for g in groups
             if g.hits and g.hits[0].score >= min_score and g.hits[0].payload
         ]
+
+    def get_chunks(self, chunk_ids: list[str]) -> list[Chunk]:
+        """Fetch chunks by ID (the graph-to-vector bridge), in the order requested."""
+        if not chunk_ids:
+            return []
+        points = self.client.retrieve(self.collection_name, ids=[point_id(c) for c in chunk_ids], with_payload=True)
+        by_id = {p.payload["chunk_id"]: Chunk.model_validate(p.payload) for p in points if p.payload}
+        return [by_id[c] for c in chunk_ids if c in by_id]

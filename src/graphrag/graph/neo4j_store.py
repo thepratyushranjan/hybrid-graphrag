@@ -11,7 +11,7 @@ from typing import Any
 from neo4j import Driver, GraphDatabase, ManagedTransaction
 
 from graphrag.config import Settings
-from graphrag.models import ENTITY_TYPES, Chunk, ChunkGraph, GraphEntity, SimilarDocument
+from graphrag.models import ENTITY_TYPES, Chunk, ChunkGraph, GraphEntity, SimilarDocument, TimeFilter
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ class Neo4jStore:
                 "id": c.chunk_id, "doc_id": c.doc_id, "source": c.source, "chunk_index": c.chunk_index,
                 "page": c.page, "section": c.section, "language": c.language,
                 "extraction_method": c.extraction_method, "token_count": c.token_count,
-                "text_preview": c.text[:TEXT_PREVIEW],
+                "text_preview": c.text[:TEXT_PREVIEW], "date_start": c.date_start, "date_end": c.date_end,
             }
             for c in chunks
         ]
@@ -179,6 +179,59 @@ class Neo4jStore:
 
         with self.driver.session() as session:
             session.execute_write(tx_write)
+
+    def search_entities(self, lucene_query: str, limit: int = 5) -> list[dict[str, Any]]:
+        """Full-text search over entity names and aliases (index `entity_names`)."""
+        records, _, _ = self.driver.execute_query(
+            "CALL db.index.fulltext.queryNodes('entity_names', $q, {limit: $limit}) YIELD node, score "
+            "RETURN node.id AS id, node.name AS name, node.type AS type, coalesce(node.aliases, []) AS aliases, score",
+            q=lucene_query, limit=limit,
+        )
+        return [dict(r) for r in records]
+
+    def chunk_entity_mentions(self, chunk_ids: list[str], entity_ids: list[str]) -> dict[str, int]:
+        """How many of `entity_ids` each chunk mentions."""
+        if not chunk_ids or not entity_ids:
+            return {}
+        records, _, _ = self.driver.execute_query(
+            "MATCH (c:Chunk)-[:MENTIONS]->(e:Entity) WHERE c.id IN $chunks AND e.id IN $entities "
+            "RETURN c.id AS chunk_id, count(DISTINCT e) AS n",
+            chunks=chunk_ids, entities=entity_ids,
+        )
+        return {r["chunk_id"]: r["n"] for r in records}
+
+    def entities_in_chunks(self, chunk_ids: list[str], hub_limit: int) -> list[dict[str, Any]]:
+        """Entities mentioned by the given chunks (in chunk order), skipping hubs."""
+        if not chunk_ids:
+            return []
+        records, _, _ = self.driver.execute_query(
+            "UNWIND range(0, size($ids) - 1) AS i MATCH (c:Chunk {id: $ids[i]})-[:MENTIONS]->(e:Entity) "
+            "WHERE COUNT { (e)--() } <= $hub AND EXISTS { (e)-[:RELATES_TO]-() } "
+            "RETURN e.id AS id, e.name AS name, i AS chunk_rank",
+            ids=chunk_ids, hub=hub_limit,
+        )
+        return [dict(r) for r in records]
+
+    def document_sources(self, limit: int = 100) -> list[dict[str, str]]:
+        records, _, _ = self.driver.execute_query(
+            "MATCH (d:Document) RETURN d.source AS source, d.doc_type AS doc_type ORDER BY d.source LIMIT $limit",
+            limit=limit,
+        )
+        return [dict(r) for r in records]
+
+    def chunk_ids_matching(self, filters: dict[str, str], time_range: TimeFilter | None = None) -> list[str]:
+        """Chunk IDs matching all filters (source / doc_type / date overlap), to scope graph facts.
+        Dates are RFC 3339 strings, so string comparison orders them correctly."""
+        start = f"{time_range.start.isoformat()}T00:00:00Z" if time_range and time_range.start else None
+        end = f"{time_range.end.isoformat()}T23:59:59Z" if time_range and time_range.end else None
+        records, _, _ = self.driver.execute_query(
+            "MATCH (c:Chunk)-[:PART_OF]->(d:Document) "
+            "WHERE ($source IS NULL OR c.source = $source) AND ($doc_type IS NULL OR d.doc_type = $doc_type) "
+            "AND ($start IS NULL OR c.date_end >= $start) AND ($end IS NULL OR c.date_start <= $end) "
+            "RETURN c.id AS id",
+            source=filters.get("source"), doc_type=filters.get("doc_type"), start=start, end=end,
+        )
+        return [r["id"] for r in records]
 
     def counts(self) -> dict[str, int]:
         records, _, _ = self.driver.execute_query(

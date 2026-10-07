@@ -79,8 +79,20 @@ class Settings(BaseSettings):
     similar_docs_min_score: float = Field(default=0.90, ge=0, le=1)
 
     # Retrieval
-    top_k: int = Field(default=4, ge=1)
-    graph_hops: int = Field(default=1, ge=1, le=2)
+    top_k: int = Field(default=4, ge=1)  # chunks sent to the LLM
+    graph_hops: int = Field(default=2, ge=1, le=2)
+    vector_candidates: int = Field(default=20, ge=1)  # Qdrant hits before fusion/rerank
+    max_facts: int = Field(default=20, ge=0)  # graph facts kept for the prompt
+    graph_fact_limit: int = Field(default=100, ge=1)  # LIMIT per Cypher template
+    hub_degree_limit: int = Field(default=50, ge=1)  # don't expand through nodes with more edges than this
+    # hybrid: when the question names no known entity, start the graph from entities in the top vector chunks
+    vector_seed_chunks: int = Field(default=3, ge=0)
+    vector_seed_entities: int = Field(default=5, ge=0)
+    rrf_k: int = Field(default=60, ge=1)  # Reciprocal Rank Fusion constant
+    entity_mention_boost: float = Field(default=0.01, ge=0)  # added per query entity a chunk mentions
+    rerank_enabled: bool = True
+    rerank_candidates: int = Field(default=20, ge=1)
+    context_token_budget: int = Field(default=3000, ge=200)
 
     def provider_warnings(self) -> list[str]:
         """Missing keys/models don't stop the server; they are logged and shown in /health."""

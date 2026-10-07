@@ -1,4 +1,4 @@
-.PHONY: env up down logs ps reset lock test seed search eval
+.PHONY: env up down logs ps reset lock test seed search compare eval
 
 UV_IMAGE := ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
@@ -34,6 +34,9 @@ seed:           ## ingest the sample documents in data/samples (needs `make up`)
 
 search:         ## vector search, e.g. make search q="road accident" args="--language hi"
 	docker compose exec api python scripts/search.py "$(q)" $(args)
+
+compare:        ## vector-only vs graph-only vs hybrid, e.g. make compare q="your question"
+	docker compose exec api python scripts/compare_modes.py $(q)
 
 eval:           ## run the Ragas evaluation
 	@echo "eval: available once the query pipeline is built (bonus: Ragas)"; exit 1

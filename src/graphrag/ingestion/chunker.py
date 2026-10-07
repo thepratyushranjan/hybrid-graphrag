@@ -6,6 +6,7 @@ from collections.abc import Callable
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langdetect import DetectorFactory, LangDetectException, detect
 
+from graphrag.ingestion.dates import extract_dates, overall_span
 from graphrag.models import Chunk, LoadedPage
 
 DetectorFactory.seed = 0  # langdetect is random by default; make it repeatable
@@ -45,6 +46,8 @@ class Chunker:
         for page in pages:
             for text in self.splitter.split_text(page.text):
                 index = len(chunks)
+                spans = extract_dates(text)
+                span = overall_span(spans)
                 chunks.append(
                     Chunk(
                         chunk_id=make_chunk_id(page.doc_id, index, text),
@@ -60,6 +63,9 @@ class Chunker:
                         extraction_method=page.extraction_method,
                         ocr_confidence=page.ocr_confidence,
                         image_captions=page.image_captions,
+                        date_start=f"{span[0].isoformat()}T00:00:00Z" if span else None,
+                        date_end=f"{span[1].isoformat()}T23:59:59Z" if span else None,
+                        dates=list(dict.fromkeys(sp.text for sp in spans)),
                     )
                 )
         return chunks
