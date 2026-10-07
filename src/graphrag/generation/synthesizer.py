@@ -9,7 +9,16 @@ from graphrag.config import Settings
 from graphrag.generation.citation_validator import validate
 from graphrag.generation.prompts import build_user_prompt, number_evidence, system_prompt
 from graphrag.llm.client import LLMClient, LLMError
-from graphrag.models import QueryResponse, RetrievalMode, RetrievalResult
+from graphrag.models import (
+    CitedFact,
+    QueryFilters,
+    QueryResponse,
+    RetrievalMode,
+    RetrievalResult,
+    Subgraph,
+    SubgraphEdge,
+    SubgraphNode,
+)
 from graphrag.retrieval.hybrid import HybridRetriever
 
 logger = logging.getLogger(__name__)
@@ -36,6 +45,18 @@ def has_evidence(result: RetrievalResult, min_score: float) -> bool:
     return max([*chunk_scores, *fact_scores], default=0.0) >= min_score
 
 
+def build_subgraph(facts: list[CitedFact]) -> Subgraph:
+    nodes: dict[str, SubgraphNode] = {}
+    edges: list[SubgraphEdge] = []
+    for cited in facts:
+        f = cited.fact
+        nodes.setdefault(f.subject_id, SubgraphNode(id=f.subject_id, name=f.subject, type=f.subject_type))
+        nodes.setdefault(f.object_id, SubgraphNode(id=f.object_id, name=f.object, type=f.object_type))
+        edges.append(SubgraphEdge(source=f.subject_id, target=f.object_id, predicate=f.predicate,
+                                  cite_id=cited.cite_id, confidence=f.confidence))
+    return Subgraph(nodes=list(nodes.values()), edges=edges)
+
+
 class AnswerGenerator:
     def __init__(self, settings: Settings, retriever: HybridRetriever, llm: LLMClient | None) -> None:
         self.settings = settings
@@ -43,14 +64,19 @@ class AnswerGenerator:
         self.llm = llm
 
     async def answer(
-        self, question: str, mode: RetrievalMode = "hybrid", top_k: int | None = None, hops: int | None = None
+        self,
+        question: str,
+        mode: RetrievalMode = "hybrid",
+        top_k: int | None = None,
+        hops: int | None = None,
+        filters: QueryFilters | None = None,
     ) -> QueryResponse:
-        result = await self.retriever.retrieve(question, mode, top_k, hops)
+        result = await self.retriever.retrieve(question, mode, top_k, hops, filters)
         chunks, facts = number_evidence(result)
         language = result.analysis.language
         base = {
-            "question": question, "language": language, "mode": mode, "chunks": chunks, "facts": facts,
-            "aggregates": result.aggregates, "analysis": result.analysis,
+            "question": question, "language": language, "mode": mode, "chunks": chunks, "graph_facts": facts,
+            "subgraph": build_subgraph(facts), "aggregates": result.aggregates, "analysis": result.analysis,
         }
         timings = dict(result.timings_ms)
 

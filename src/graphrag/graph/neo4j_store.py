@@ -4,6 +4,7 @@ All writes MERGE on `id` only and then SET properties (merging on several proper
 cause of duplicate nodes), so re-ingesting a document leaves node and edge counts unchanged.
 """
 
+import json
 import logging
 from collections.abc import Iterator
 from typing import Any
@@ -83,6 +84,7 @@ class Neo4jStore:
         chunks: list[Chunk],
         graphs: list[ChunkGraph],
         similar: list[SimilarDocument] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Replace everything stored for `source` with this version of the document, in one transaction."""
         chunk_rows = [
@@ -117,8 +119,9 @@ class Neo4jStore:
             # 2. Lexical graph
             tx.run(
                 "MERGE (d:Document {id: $doc_id}) SET d.source = $source, d.doc_type = $doc_type, "
-                "d.chunks = $n, d.status = 'processing'",
+                "d.chunks = $n, d.status = 'processing', d.metadata = $metadata",
                 doc_id=doc_id, source=source, doc_type=doc_type, n=len(chunk_rows),
+                metadata=json.dumps(metadata, ensure_ascii=False) if metadata else None,
             ).consume()
             for rows in _batches(chunk_rows):
                 tx.run(
@@ -227,9 +230,11 @@ class Neo4jStore:
         records, _, _ = self.driver.execute_query(
             "MATCH (c:Chunk)-[:PART_OF]->(d:Document) "
             "WHERE ($source IS NULL OR c.source = $source) AND ($doc_type IS NULL OR d.doc_type = $doc_type) "
+            "AND ($language IS NULL OR c.language = $language) "
             "AND ($start IS NULL OR c.date_end >= $start) AND ($end IS NULL OR c.date_start <= $end) "
             "RETURN c.id AS id",
-            source=filters.get("source"), doc_type=filters.get("doc_type"), start=start, end=end,
+            source=filters.get("source"), doc_type=filters.get("doc_type"), language=filters.get("language"),
+            start=start, end=end,
         )
         return [r["id"] for r in records]
 

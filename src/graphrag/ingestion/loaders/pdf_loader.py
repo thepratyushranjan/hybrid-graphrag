@@ -116,6 +116,7 @@ class _PdfPageReader:
             extraction_method=method,
             ocr_confidence=_mean_confidence(ocr_results),
             image_captions=captions,
+            ocr_images=len(ocr_results) if method == "text+ocr_image" else 0,
         )
 
     def _embedded_image(self, xref: int, page_no: int) -> Image.Image | None:

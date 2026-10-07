@@ -7,6 +7,7 @@ OpenAI-compatible endpoints), so a single SDK covers every provider.
 import base64
 import logging
 import re
+import time
 from typing import TypeVar
 
 from openai import OpenAI, OpenAIError
@@ -55,6 +56,20 @@ class LLMClient:
         if not api_key:
             raise LLMError(f"LLM_PROVIDER={self.provider} needs an API key in .env")
         self.client = OpenAI(api_key=api_key, base_url=base_url, timeout=180, max_retries=2)
+        self._ping_cache: tuple[float, str] | None = None
+
+    def ping(self, ttl: float = 30.0) -> str:
+        """'ok' if the provider answers and serves the model; cached for `ttl` seconds (health is polled)."""
+        if self._ping_cache and time.monotonic() - self._ping_cache[0] < ttl:
+            return self._ping_cache[1]
+        try:
+            fast = self.client.with_options(timeout=5, max_retries=0)
+            ids = {m.id.removeprefix("models/") for m in fast.models.list()}
+            state = "ok" if not ids or self.model in ids else f"error: model '{self.model}' not available"
+        except OpenAIError as exc:
+            state = f"error: {exc.__class__.__name__}: {exc}"
+        self._ping_cache = (time.monotonic(), state)
+        return state
 
     def describe_image(self, png: bytes, prompt: str = CAPTION_PROMPT) -> str:
         image_url = "data:image/png;base64," + base64.b64encode(png).decode()

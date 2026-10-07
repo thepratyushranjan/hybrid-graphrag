@@ -140,3 +140,26 @@ def test_no_evidence_skips_the_llm(retriever: HybridRetriever) -> None:
     response = asyncio.run(AnswerGenerator(retriever.settings, retriever, llm).answer("anything", mode="graph"))  # type: ignore[arg-type]
     assert not response.grounded and "could not find" in response.answer
     assert not hasattr(llm, "last_prompt")  # complete() was never called
+
+
+def test_llm_failure_returns_evidence_with_note(retriever: HybridRetriever) -> None:
+    from graphrag.llm.client import LLMError
+
+    class BrokenLLM(FakeLLM):
+        def complete(self, *args: object, **kwargs: object) -> str:
+            raise LLMError("ollama/gemma4 request failed: connection refused")
+
+    response = asyncio.run(
+        AnswerGenerator(retriever.settings, retriever, BrokenLLM(RESULT)).answer("What does Clause 7.2 impact?")  # type: ignore[arg-type]
+    )
+    assert not response.grounded and "connection refused" in response.answer
+    assert response.chunks and response.graph_facts  # the evidence is still returned
+    assert response.subgraph.edges and response.subgraph.nodes
+
+
+def test_explicit_filters_are_never_dropped(retriever: HybridRetriever) -> None:
+    from graphrag.models import QueryFilters
+
+    result = asyncio.run(retriever.retrieve("What does Clause 7.2 impact?", "hybrid",
+                                            filters=QueryFilters(source="no_such_file.pdf")))
+    assert result.analysis.filters == {"source": "no_such_file.pdf"} and result.chunks == []

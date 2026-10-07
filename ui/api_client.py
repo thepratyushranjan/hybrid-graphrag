@@ -15,7 +15,7 @@ class ApiResult:
 
 
 class ApiClient:
-    def __init__(self, base_url: str, timeout: float = 900.0) -> None:  # ingest runs LLM extraction
+    def __init__(self, base_url: str, timeout: float = 300.0) -> None:  # /query may wait for a local LLM
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
 
@@ -40,7 +40,11 @@ class ApiClient:
         return self._request("GET", "/health")
 
     def ingest(self, filename: str, content: bytes, content_type: str) -> ApiResult:
+        """Queues the document; the response is a job (poll `job`)."""
         return self._request("POST", "/ingest", files={"file": (filename, content, content_type)})
+
+    def job(self, job_id: str) -> ApiResult:
+        return self._request("GET", f"/ingest/{job_id}")
 
     def query(self, question: str, top_k: int, hops: int, mode: str = "hybrid") -> ApiResult:
         return self._request(

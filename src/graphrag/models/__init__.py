@@ -1,5 +1,14 @@
-from graphrag.models.answer import Citation, CitedChunk, CitedFact, QueryResponse
-from graphrag.models.documents import Chunk, DocType, ExtractionMethod, IngestResult, LoadedPage, RetrievedChunk
+from graphrag.models.answer import Citation, CitedChunk, CitedFact, QueryResponse, Subgraph, SubgraphEdge, SubgraphNode
+from graphrag.models.documents import (
+    Chunk,
+    DocMetadata,
+    DocType,
+    ExtractionMethod,
+    IngestJob,
+    IngestResult,
+    LoadedPage,
+    RetrievedChunk,
+)
 from graphrag.models.retrieval import (
     Aggregate,
     GraphFact,
@@ -8,6 +17,7 @@ from graphrag.models.retrieval import (
     QueryEntity,
     RankedChunk,
     RetrievalMode,
+    QueryFilters,
     RetrievalResult,
     TimeFilter,
 )
@@ -25,7 +35,8 @@ from graphrag.models.graph import (
 )
 
 __all__ = [
-    "Citation", "CitedChunk", "CitedFact", "QueryResponse",
+    "Citation", "CitedChunk", "CitedFact", "QueryResponse", "DocMetadata", "IngestJob", "QueryFilters", "Subgraph", "SubgraphEdge",
+    "SubgraphNode",
     "Aggregate", "GraphFact", "QueryAnalysis", "QueryAnalysisLLM", "QueryEntity", "RankedChunk", "RetrievalMode",
     "RetrievalResult", "TimeFilter",
     "ENTITY_TYPES", "PREDICATES", "Chunk", "ChunkGraph", "DocType", "EntityType", "ExtractedEntity",

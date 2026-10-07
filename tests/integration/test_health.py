@@ -9,4 +9,6 @@ def test_health_reports_both_databases_ok() -> None:
     with TestClient(app) as client:
         resp = client.get("/health")
     assert resp.status_code == 200, resp.text
-    assert resp.json()["checks"] == {"qdrant": "ok", "neo4j": "ok"}
+    checks = resp.json()["checks"]
+    assert checks["qdrant"] == "ok" and checks["neo4j"] == "ok"
+    assert "llm" in checks  # reported, but a missing LLM doesn't make the service unhealthy

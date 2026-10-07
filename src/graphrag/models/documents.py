@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -20,6 +21,11 @@ class LoadedPage(BaseModel):
     extraction_method: ExtractionMethod = "text"
     ocr_confidence: float | None = None  # mean Tesseract confidence (0-100) of the OCR'd text
     image_captions: int = 0  # images without text that a vision LLM described
+    ocr_images: int = 0  # embedded images whose text was OCR'd
+
+
+# optional user metadata attached to an uploaded document (e.g. {"author": "...", "year": 2025})
+DocMetadata = dict[str, str | int | float | bool]
 
 
 class Chunk(BaseModel):
@@ -40,6 +46,7 @@ class Chunk(BaseModel):
     date_start: str | None = None
     date_end: str | None = None
     dates: list[str] = Field(default_factory=list)  # the mentions as written, e.g. "14 October 2025"
+    metadata: DocMetadata = Field(default_factory=dict)  # user metadata given at upload
 
 
 class IngestResult(BaseModel):
@@ -50,6 +57,8 @@ class IngestResult(BaseModel):
     chunks: int
     languages: dict[str, int] = Field(default_factory=dict)
     extraction_methods: dict[str, int] = Field(default_factory=dict)
+    ocr_pages: int = 0  # scanned / legacy-font pages read with OCR
+    ocr_images: int = 0  # embedded images whose text was OCR'd
     replaced_points: int = 0  # old points of the same source removed before upsert
     entities: int = 0  # distinct entities mentioned by this document's chunks
     relations: int = 0  # LLM relations written to Neo4j
@@ -62,3 +71,22 @@ class IngestResult(BaseModel):
 class RetrievedChunk(BaseModel):
     chunk: Chunk
     score: float
+
+
+JobStatus = Literal["queued", "running", "completed", "failed"]
+
+
+class IngestJob(BaseModel):
+    """Background ingestion job (LLM extraction is slow, so POST /ingest returns at once)."""
+
+    job_id: str
+    status: JobStatus = "queued"
+    filename: str
+    size_bytes: int
+    metadata: DocMetadata = Field(default_factory=dict)
+    stage: str = "queued"  # e.g. "extracting graph 3/9"
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    result: IngestResult | None = None
+    errors: list[str] = Field(default_factory=list)

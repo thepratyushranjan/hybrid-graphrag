@@ -18,6 +18,27 @@ class CitedFact(BaseModel):
     support: list[str] = Field(default_factory=list)  # C# ids of the fact's evidence chunks that are in the prompt
 
 
+class SubgraphNode(BaseModel):
+    id: str
+    name: str
+    type: str | None = None
+
+
+class SubgraphEdge(BaseModel):
+    source: str
+    target: str
+    predicate: str
+    cite_id: str
+    confidence: float
+
+
+class Subgraph(BaseModel):
+    """The graph facts behind the answer, as nodes + edges for a graph view."""
+
+    nodes: list[SubgraphNode] = Field(default_factory=list)
+    edges: list[SubgraphEdge] = Field(default_factory=list)
+
+
 class Citation(BaseModel):
     """One citation used in the answer, with what the UI needs to show / link it."""
 
@@ -40,7 +61,8 @@ class QueryResponse(BaseModel):
     invalid_citations: list[str] = Field(default_factory=list)  # cited ids that weren't in the prompt (removed)
     uncited_sentences: list[str] = Field(default_factory=list)  # answer sentences without any citation
     chunks: list[CitedChunk] = Field(default_factory=list)
-    facts: list[CitedFact] = Field(default_factory=list)
+    graph_facts: list[CitedFact] = Field(default_factory=list)
+    subgraph: Subgraph = Field(default_factory=Subgraph)
     aggregates: list[Aggregate] = Field(default_factory=list)
     analysis: QueryAnalysis
     timings_ms: dict[str, float] = Field(default_factory=dict)

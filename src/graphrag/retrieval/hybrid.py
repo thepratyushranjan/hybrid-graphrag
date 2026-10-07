@@ -17,6 +17,7 @@ from graphrag.models import (
     GraphFact,
     QueryAnalysis,
     QueryEntity,
+    QueryFilters,
     RetrievalMode,
     RetrievalResult,
 )
@@ -49,7 +50,12 @@ class HybridRetriever:
         self.reranker = reranker
 
     async def retrieve(
-        self, question: str, mode: RetrievalMode = "hybrid", top_k: int | None = None, hops: int | None = None
+        self,
+        question: str,
+        mode: RetrievalMode = "hybrid",
+        top_k: int | None = None,
+        hops: int | None = None,
+        filters: QueryFilters | None = None,
     ) -> RetrievalResult:
         top_k = top_k or self.settings.top_k
         hops = hops or self.settings.graph_hops
@@ -87,9 +93,10 @@ class HybridRetriever:
         async def graph_branch() -> tuple[QueryAnalysis, list[GraphFact], list[Aggregate], list[str]]:
             nonlocal seed_hits
             if mode == "vector":
-                return QueryAnalysis(language=detect_language(question)), [], [], []
+                return self._apply_explicit(QueryAnalysis(language=detect_language(question)), filters), [], [], []
             analysis = await timed("query_analysis", lambda: self.analyzer.analyze(question))
-            await timed("check_filters", lambda: self._drop_empty_filters(analysis))
+            await timed("check_filters", lambda: self._drop_empty_filters(analysis))  # inferred filters only
+            self._apply_explicit(analysis, filters)
             if mode == "hybrid" and not analysis.entity_ids and analysis.query_type == "relationship":
                 # Graph-from-vector seeding: the question names no known entity ("the subsidiary whose steel
                 # supplier was put on probation"), so start the graph walk from entities in the top chunks
@@ -158,6 +165,15 @@ class HybridRetriever:
                 unfiltered.cancel()
             return await search(analysis)
         return await unfiltered if unfiltered is not None else []
+
+    @staticmethod
+    def _apply_explicit(analysis: QueryAnalysis, filters: QueryFilters | None) -> QueryAnalysis:
+        """Caller-given filters win over inferred ones and are never dropped."""
+        if filters is not None:
+            analysis.filters.update(filters.exact())
+            if (time_range := filters.time()) is not None:
+                analysis.time_range = time_range
+        return analysis
 
     def _drop_empty_filters(self, analysis: QueryAnalysis) -> None:
         """Safety net: a filter that matches no chunk would silently hide everything. Drop the time range

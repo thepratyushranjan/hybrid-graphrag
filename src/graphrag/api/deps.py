@@ -1,6 +1,7 @@
 from fastapi import HTTPException, Request, status
 
 from graphrag.graph.neo4j_store import Neo4jStore
+from graphrag.api.jobs import JobStore
 from graphrag.generation.synthesizer import AnswerGenerator
 from graphrag.ingestion.pipeline import IngestionPipeline
 from graphrag.retrieval.hybrid import HybridRetriever
@@ -43,3 +44,13 @@ def get_generator(request: Request) -> AnswerGenerator:
             detail=f"Query unavailable: {request.app.state.pipeline_error}",
         )
     return generator
+
+
+def get_jobs(request: Request) -> JobStore:
+    jobs: JobStore | None = request.app.state.jobs
+    if jobs is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Ingestion unavailable: {request.app.state.pipeline_error}",
+        )
+    return jobs

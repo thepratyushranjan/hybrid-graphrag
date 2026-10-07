@@ -8,6 +8,7 @@ import io
 import logging
 import time
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -22,7 +23,9 @@ from graphrag.ingestion.loaders import doc_type_for, load_document, make_doc_id
 from graphrag.ingestion.loaders.pdf_loader import ImageCaptioner
 from graphrag.llm.cache import JsonCache
 from graphrag.llm.client import LLMClient, LLMError
-from graphrag.models import Chunk, ChunkGraph, IngestResult, SimilarDocument
+from graphrag.models import Chunk, ChunkGraph, DocMetadata, IngestResult, SimilarDocument
+
+Progress = Callable[[str], None]  # receives the current stage, e.g. "extracting graph 3/9"
 from graphrag.vector_store.qdrant_store import QdrantStore
 
 if TYPE_CHECKING:
@@ -88,13 +91,14 @@ class IngestionPipeline:
             return f"LLM unavailable ({self.llm_error})"
         return None
 
-    def _extract_graph(self, chunks: list[Chunk]) -> list[ChunkGraph]:
+    def _extract_graph(self, chunks: list[Chunk], progress: Progress) -> list[ChunkGraph]:
         assert self.extractor is not None and self.graph_store is not None
         resolver = EntityResolver(self.graph_store.known_entities(self.settings.known_entities_limit))
         graphs: list[ChunkGraph] = []
         # Sequential on purpose: each chunk sees the entities found in earlier chunks, which keeps names
         # consistent, and it stays within free-tier / local-GPU rate limits.
-        for chunk in chunks:
+        for i, chunk in enumerate(chunks, start=1):
+            progress(f"extracting graph {i}/{len(chunks)}")
             graphs.append(self.extractor.extract(chunk, resolver))
         return graphs
 
@@ -107,16 +111,24 @@ class IngestionPipeline:
             centroid.tolist(), doc_id, self.settings.similar_docs_top_n, self.settings.similar_docs_min_score
         )
 
-    def ingest(self, filename: str, data: bytes) -> IngestResult:
+    def ingest(
+        self, filename: str, data: bytes, metadata: DocMetadata | None = None, progress: Progress | None = None
+    ) -> IngestResult:
+        report: Progress = progress or (lambda _stage: None)
         started = time.perf_counter()
         doc_type = doc_type_for(filename)  # raises UnsupportedFileType early
         doc_id = make_doc_id(data)
+        report("loading" + (" (OCR)" if doc_type == "pdf" and self.settings.ocr_enabled else ""))
         pages = load_document(filename, data, self.settings, self.captioner)
+        report("chunking")
         chunks = self.chunker.split(pages)
         if not chunks:
             raise EmptyDocumentError(f"No text could be extracted from {filename}")
+        if metadata:
+            chunks = [c.model_copy(update={"metadata": metadata}) for c in chunks]
 
         # 1. Vector branch
+        report(f"embedding {len(chunks)} chunks")
         vectors = self.embedder.embed_documents([c.text for c in chunks])
         self.vector_store.ensure_collection()
         removed = self.vector_store.replace_document(chunks, vectors)
@@ -128,15 +140,16 @@ class IngestionPipeline:
             graph_status = f"skipped: {skip}"
         else:
             try:
-                graphs = self._extract_graph(chunks)
+                graphs = self._extract_graph(chunks, report)
             except LLMError as exc:
                 graph_status = f"failed: {exc}"
                 logger.error("Graph extraction failed for %s: %s", filename, exc)
         similar: list[SimilarDocument] = []
+        report("writing graph")
         if self.graph_store is not None:
             if graph_status == "complete" or not self.graph_store.has_source(filename):
                 similar = self._similar_documents(doc_id, vectors)
-                self.graph_store.write_document(doc_id, filename, doc_type, chunks, graphs, similar)
+                self.graph_store.write_document(doc_id, filename, doc_type, chunks, graphs, similar, metadata)
             else:
                 # Don't replace a graph built earlier with an entity-less one just because the LLM is down
                 graph_status += " (kept the existing graph for this file)"
@@ -149,6 +162,8 @@ class IngestionPipeline:
             chunks=len(chunks),
             languages=dict(Counter(c.language for c in chunks)),
             extraction_methods=dict(Counter(p.extraction_method for p in pages)),
+            ocr_pages=sum(p.extraction_method in ("ocr_page", "ocr_legacy_font") for p in pages),
+            ocr_images=sum(p.ocr_images for p in pages),
             replaced_points=removed,
             entities=len({e.id for g in graphs for e in g.entities}),
             relations=sum(len(g.relations) for g in graphs),

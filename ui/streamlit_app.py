@@ -2,6 +2,7 @@
 them, and document ingestion. Talks to the FastAPI service only (POST /query, POST /ingest, GET /health)."""
 
 import os
+import time
 from typing import Any
 
 import streamlit as st
@@ -89,6 +90,8 @@ def render_analysis(data: dict[str, Any]) -> None:
 
 
 def render_ingest_result(data: dict[str, Any]) -> None:
+    if data.get("ocr_pages") or data.get("ocr_images"):
+        st.caption(f"🔍 OCR: {data.get('ocr_pages', 0)} scanned page(s), {data.get('ocr_images', 0)} image(s)")
     c1, c2, c3 = st.columns(3)
     c1.metric("Chunks", data.get("chunks", 0))
     c2.metric("Entities", data.get("entities", 0))
@@ -131,7 +134,7 @@ def render_assistant(payload: dict[str, Any]) -> None:
         st.caption(f"⚠️ {len(payload['uncited_sentences'])} sentence(s) without a citation")
     render_analysis(payload)
     render_chunks(payload.get("chunks", []), used)
-    render_facts(payload.get("facts", []), payload.get("aggregates", []), used)
+    render_facts(payload.get("graph_facts", []), payload.get("aggregates", []), used)
 
 
 # ---------- sidebar ----------
@@ -160,15 +163,27 @@ with st.sidebar:
     )
     if st.button("Ingest", disabled=not uploads, type="primary", width="stretch"):
         for upload in uploads or []:
-            with st.spinner(f"Ingesting {upload.name}…"):
-                result = client.ingest(upload.name, upload.getvalue(), upload.type or "application/octet-stream")
-            if result.ok:
-                st.success(f"{upload.name} ingested in {result.data['seconds']}s")
-                render_ingest_result(result.data)
-            elif result.not_implemented:
-                st.info(f"{result.error}.")
-            else:
-                st.error(f"{upload.name}: {result.error}")
+            submitted = client.ingest(upload.name, upload.getvalue(), upload.type or "application/octet-stream")
+            if not submitted.ok or not submitted.data:
+                st.error(f"{upload.name}: {submitted.error}")
+                continue
+            job_id = submitted.data["job_id"]
+            with st.status(f"{upload.name}: queued", expanded=False) as box:
+                job = submitted.data
+                while job["status"] in ("queued", "running"):  # poll the background job
+                    time.sleep(1)
+                    polled = client.job(job_id)
+                    if not polled.ok or not polled.data:
+                        break
+                    job = polled.data
+                    box.update(label=f"{upload.name}: {job['stage']}")
+                if job["status"] == "completed":
+                    box.update(label=f"{upload.name} ingested in {job['result']['seconds']}s", state="complete")
+                    render_ingest_result(job["result"])
+                else:
+                    box.update(label=f"{upload.name}: {job['status']}", state="error")
+                    for error in job.get("errors", []):
+                        st.error(error)
 
     st.divider()
     st.header("🔎 Retrieval")

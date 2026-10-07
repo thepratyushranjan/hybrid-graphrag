@@ -137,3 +137,21 @@ class RetrievalResult(BaseModel):
     templates: list[str] = Field(default_factory=list)  # Cypher templates that ran
     context_tokens: int = 0
     timings_ms: dict[str, float] = Field(default_factory=dict)
+
+
+class QueryFilters(BaseModel):
+    """Explicit filters from the API caller. Unlike filters the analyser infers, these are never dropped."""
+
+    source: str | None = None  # file name
+    doc_type: Literal["pdf", "md", "txt"] | None = None
+    language: str | None = None  # ISO code, e.g. "hi"
+    date_from: date | None = None  # chunk date mentions must overlap [date_from, date_to]
+    date_to: date | None = None
+
+    def exact(self) -> dict[str, str]:
+        return {k: v for k, v in {"source": self.source, "doc_type": self.doc_type, "language": self.language}.items() if v}
+
+    def time(self) -> TimeFilter | None:
+        if not (self.date_from or self.date_to):
+            return None
+        return TimeFilter(start=self.date_from, end=self.date_to, expression="request filter")
