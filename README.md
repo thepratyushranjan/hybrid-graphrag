@@ -56,7 +56,7 @@ languages — that plain similarity search can't. Using both gives the best answ
 ### 2. Clone and configure
 
 ```bash
-git clone <repository-url> hybrid-graphrag
+git clone https://github.com/thepratyushranjan/hybrid-graphrag.git
 cd hybrid-graphrag
 cp .env.example .env          # Windows PowerShell: copy .env.example .env
 ```
@@ -147,7 +147,31 @@ http://localhost:8000/docs.
 
 ## Results
 
-<!-- RAGAS_TABLE -->
+[Ragas](https://docs.ragas.io) evaluation: 8 questions (lookup, multi-hop, counting; English, Hindi, Hinglish) in
+[`eval/testset.json`](eval/testset.json), each answered in all three modes. Judge: local `gemma4` via Ollama.
+Re-run with `make eval`; full output in [`eval/results/latest.md`](eval/results/latest.md).
+
+| Mode | Faithfulness | Answer relevancy | Context precision | Factual correctness | Context recall | Answered |
+|---|---|---|---|---|---|---|
+| vector | 1.000 | 0.945 | 0.865 | 0.738 | 0.875 | 8/8 |
+| graph | 0.945 | 0.896 | 0.559 | 0.615 | 0.750 | 6/8 |
+| **hybrid** | 0.938 | 0.925 | 0.702 | 0.610 | **1.000** | 8/8 |
+
+What this shows:
+
+- **Hybrid is the only mode that found the evidence for every question** (context recall 1.000). On the multi-hop
+  question *"Who leads the subsidiary whose steel supplier was put on probation?"* vector search scores 0.00 recall and
+  graph search 0.00, while hybrid scores 1.00 and answers it.
+- **Vector-only does well on simple lookups**, which are most of this small test set — that is why its averages are high.
+- **Graph-only can't answer free-text questions** (e.g. revenue figures that aren't relationships) — 6/8 answered.
+- **Hybrid has lower context precision** because it adds graph facts alongside the text, and the judge ranks some of
+  those as less useful.
+- **Factual correctness is noisy with a small local judge.** It compares claims against a short reference answer, so a
+  longer answer with extra true details is penalised. Example: hybrid's q4 answer is correct (Brightline Logistics,
+  two subsidiaries) but scored 0.00 because it also listed the other vendors.
+
+With 8 questions and a local judge, small differences are not significant. The project also has **138 automated tests**
+(`make test`).
 
 ---
 

@@ -1,5 +1,5 @@
 {
-  "meta": "Judge: ollama/gemma4:latest · embeddings: intfloat/multilingual-e5-small · 8 questions · 782s · 20261007-091328 UTC",
+  "meta": "Judge: ollama/gemma4:latest · embeddings: intfloat/multilingual-e5-small · 8 questions · 1108s · 20261007-093358 UTC",
   "rows": [
     {
       "id": "q1",
@@ -13,7 +13,9 @@
       "contexts": 4,
       "faithfulness": 1.0,
       "answer_relevancy": 1.0,
-      "context_precision": 1.0
+      "context_precision": 1.0,
+      "factual_correctness": 1.0,
+      "context_recall": 1.0
     },
     {
       "id": "q1",
@@ -27,7 +29,9 @@
       "contexts": 12,
       "faithfulness": 1.0,
       "answer_relevancy": 1.0,
-      "context_precision": 0.817
+      "context_precision": 0.817,
+      "factual_correctness": 1.0,
+      "context_recall": 1.0
     },
     {
       "id": "q1",
@@ -41,7 +45,9 @@
       "contexts": 12,
       "faithfulness": 1.0,
       "answer_relevancy": 1.0,
-      "context_precision": 0.817
+      "context_precision": 0.817,
+      "factual_correctness": 0.89,
+      "context_recall": 1.0
     },
     {
       "id": "q2",
@@ -55,7 +61,9 @@
       "contexts": 4,
       "faithfulness": 1.0,
       "answer_relevancy": 1.0,
-      "context_precision": 0.0
+      "context_precision": 0.0,
+      "factual_correctness": 0.4,
+      "context_recall": 0.0
     },
     {
       "id": "q2",
@@ -68,8 +76,10 @@
       "grounded": false,
       "contexts": 0,
       "faithfulness": null,
-      "answer_relevancy": 0.739,
-      "context_precision": 0.0
+      "answer_relevancy": 0.742,
+      "context_precision": 0.0,
+      "factual_correctness": 0.0,
+      "context_recall": 0.0
     },
     {
       "id": "q2",
@@ -78,12 +88,14 @@
       "mode": "hybrid",
       "question": "Who leads the subsidiary whose steel supplier was put on probation?",
       "reference": "Vikram Singh. He is the Managing Director of Ganga Roadways Pvt Ltd, which placed its steel supplier Shakti Steel Works on probation after the guard rail incident.",
-      "answer": "Vikram Singh leads Ganga Roadways Pvt Ltd [G2].\n\nGanga Roadways Pvt Ltd is the subsidiary that contracted with the steel supplier, Shakti Steel Works [C4]. Shakti Steel Works was put on probation by Ganga Roadways Pvt Ltd following an incident where workers were injured while installing a guard rail supplied by the company, and the consignment lacked a safety certificate [C2][G3][G13].",
+      "answer": "Vikram Singh leads Ganga Roadways Pvt Ltd [G1].\n\n*   Shakti Steel Works, the steel supplier, was put on probation by Ganga Roadways Pvt Ltd following an incident on the Lucknow-Sitapur Highway Upgrade [C2], [G3].\n*   Shakti Steel Works is contracted by Ganga Roadways Pvt Ltd [C4], [G15].\n*   Vikram Singh is identified as the Managing Director of Ganga Roadways Pvt Ltd [G1].",
       "grounded": true,
       "contexts": 12,
-      "faithfulness": 0.8,
-      "answer_relevancy": 0.86,
-      "context_precision": 0.167
+      "faithfulness": 0.5,
+      "answer_relevancy": 0.806,
+      "context_precision": 0.2,
+      "factual_correctness": 0.75,
+      "context_recall": 1.0
     },
     {
       "id": "q3",
@@ -97,7 +109,9 @@
       "contexts": 4,
       "faithfulness": 1.0,
       "answer_relevancy": 1.0,
-      "context_precision": 0.917
+      "context_precision": 0.917,
+      "factual_correctness": 0.5,
+      "context_recall": 1.0
     },
     {
       "id": "q3",
@@ -106,12 +120,14 @@
       "mode": "graph",
       "question": "Which vendors connected to Ganga Smart Power are impacted by Clause 7.2?",
       "reference": "DataSecure Cloud Pvt Ltd and NovaGrid Electronics. Both handle customer data for Ganga Smart Power Ltd, and Clause 7.2 requires that data to stay on servers in India.",
-      "answer": "The vendors connected to Ganga Smart Power Ltd that are impacted by Clause 7.2 are DataSecure Cloud Pvt Ltd and NovaGrid Electronics [C1][C2].\n\n*   **DataSecure Cloud Pvt Ltd** is impacted by Clause 7.2 [G4] and hosts meter and customer data for Ganga Smart Power Ltd [C2][G10].\n*   **NovaGrid Electronics** is impacted by Clause 7.2 [G2] and collects meter readings for Ganga Smart Power Ltd [C2][G7].\n\nBoth vendors are noted as being connected to Ganga Smart Power Ltd [C1].",
+      "answer": "The vendors connected to Ganga Smart Power Ltd that are impacted by Clause 7.2 are DataSecure Cloud Pvt Ltd and NovaGrid Electronics [C1][C2].\n\n*   **DataSecure Cloud Pvt Ltd** is impacted by Clause 7.2 [G2] and is connected to Ganga Smart Power Ltd, where it hosts meter and customer data [C2][C3].\n*   **NovaGrid Electronics** is impacted by Clause 7.2 [G1] and is connected to Ganga Smart Power Ltd, where it collects meter readings [C2][C3].",
       "grounded": true,
       "contexts": 12,
       "faithfulness": 1.0,
       "answer_relevancy": 0.997,
-      "context_precision": 0.893
+      "context_precision": 0.893,
+      "factual_correctness": 0.6,
+      "context_recall": 1.0
     },
     {
       "id": "q3",
@@ -120,12 +136,14 @@
       "mode": "hybrid",
       "question": "Which vendors connected to Ganga Smart Power are impacted by Clause 7.2?",
       "reference": "DataSecure Cloud Pvt Ltd and NovaGrid Electronics. Both handle customer data for Ganga Smart Power Ltd, and Clause 7.2 requires that data to stay on servers in India.",
-      "answer": "The vendors connected to Ganga Smart Power that are impacted by Clause 7.2 are DataSecure Cloud Pvt Ltd and NovaGrid Electronics [C1][C2].\n\n*   Clause 7.2 impacts DataSecure Cloud Pvt Ltd and NovaGrid Electronics, both of which are connected to Ganga Smart Power Ltd [C1].\n*   DataSecure Cloud Pvt Ltd hosts meter and customer data for Ganga Smart Power Ltd [C2].\n*   NovaGrid Electronics collects meter readings for Ganga Smart Power Ltd [C2].",
+      "answer": "The vendors connected to Ganga Smart Power impacted by Clause 7.2 are DataSecure Cloud Pvt Ltd and NovaGrid Electronics [C1][C2].\n\n*   Clause 7.2 impacts DataSecure Cloud Pvt Ltd and NovaGrid Electronics, both of which are connected to Ganga Smart Power Ltd [C1].\n*   DataSecure Cloud Pvt Ltd hosts meter and customer data for Ganga Smart Power Ltd, and NovaGrid Electronics collects meter readings for Ganga Smart Power Ltd [C2].",
       "grounded": true,
       "contexts": 12,
       "faithfulness": 1.0,
       "answer_relevancy": 1.0,
-      "context_precision": 0.83
+      "context_precision": 0.83,
+      "factual_correctness": 0.5,
+      "context_recall": 1.0
     },
     {
       "id": "q4",
@@ -139,7 +157,9 @@
       "contexts": 4,
       "faithfulness": 1.0,
       "answer_relevancy": 0.832,
-      "context_precision": 1.0
+      "context_precision": 1.0,
+      "factual_correctness": 0.8,
+      "context_recall": 1.0
     },
     {
       "id": "q4",
@@ -153,7 +173,9 @@
       "contexts": 13,
       "faithfulness": 0.667,
       "answer_relevancy": 0.83,
-      "context_precision": 0.492
+      "context_precision": 0.492,
+      "factual_correctness": 0.8,
+      "context_recall": 1.0
     },
     {
       "id": "q4",
@@ -167,7 +189,9 @@
       "contexts": 13,
       "faithfulness": 1.0,
       "answer_relevancy": 0.855,
-      "context_precision": 0.492
+      "context_precision": 0.492,
+      "factual_correctness": 0.0,
+      "context_recall": 1.0
     },
     {
       "id": "q5",
@@ -181,7 +205,9 @@
       "contexts": 4,
       "faithfulness": 1.0,
       "answer_relevancy": 1.0,
-      "context_precision": 1.0
+      "context_precision": 1.0,
+      "factual_correctness": 0.86,
+      "context_recall": 1.0
     },
     {
       "id": "q5",
@@ -190,12 +216,14 @@
       "mode": "graph",
       "question": "शक्ति स्टील वर्क्स को परिवीक्षा पर क्यों रखा गया?",
       "reference": "14 अक्टूबर 2025 को लखनऊ–सीतापुर राजमार्ग परियोजना पर शक्ति स्टील वर्क्स की गार्ड रेल लगाते समय दो मज़दूर घायल हुए और खेप के साथ सुरक्षा प्रमाणपत्र नहीं था, इसलिए गंगा रोडवेज़ ने उसे 90 दिनों की परिवीक्षा पर रखा।",
-      "answer": "शक्ति स्टील वर्क्स को एक दुर्घटना के बाद परिवीक्षा पर रखा गया था, जिसमें गार्ड रेल के साथ आवश्यक सुरक्षा प्रमाणपत्र नहीं था [C1][C2]।\n\nविवरण:\n*   14 अक्टूबर 2025 को लखनऊ-सीतापुर राजमार्ग अपग्रेड पर शक्ति स्टील वर्क्स द्वारा आपूर्ति की गई एक गार्ड रेल लगाते समय दो मज़दूर घायल हो गए थे [C1][C2]।\n*   जाँच में पाया गया कि उस खेप के पास कोई सुरक्षा प्रमाणपत्र नहीं था [C1][C2]।\n*   इस घटना के बाद, गंगा रोडवेज़ ने शक्ति स्टील वर्क्स को 20 अक्टूबर 2025 से 90 दिनों की परिवीक्षा पर रखा [C1]।",
+      "answer": "शक्ति स्टील वर्क्स को परिवीक्षा पर इसलिए रखा गया क्योंकि लखनऊ-सीतापुर राजमार्ग पर एक दुर्घटना हुई, जिसमें गार्ड रेल लगाते समय दो मज़दूर घायल हुए और खेप के पास आवश्यक सुरक्षा प्रमाणपत्र नहीं था [C1][C2]।\n\nविवरण:\n*   14 अक्टूबर 2025 को लखनऊ-सीतापुर राजमार्ग अपग्रेड पर शक्ति स्टील वर्क्स द्वारा आपूर्ति की गई गार्ड रेल लगाते समय दो मज़दूर घायल हो गए थे [C1][C2]।\n*   जाँच में पाया गया कि गार्ड रेल के साथ आवश्यक सुरक्षा प्रमाणपत्र नहीं था [C2]।\n*   इस घटना के बाद, गंगा रोडवेज़ ने शक्ति स्टील वर्क्स को 20 अक्टूबर 2025 से 90 दिनों की परिवीक्षा पर रखा [C1]।",
       "grounded": true,
       "contexts": 12,
       "faithfulness": 1.0,
-      "answer_relevancy": 0.999,
-      "context_precision": 0.643
+      "answer_relevancy": 1.0,
+      "context_precision": 1.0,
+      "factual_correctness": 0.91,
+      "context_recall": 1.0
     },
     {
       "id": "q5",
@@ -204,12 +232,14 @@
       "mode": "hybrid",
       "question": "शक्ति स्टील वर्क्स को परिवीक्षा पर क्यों रखा गया?",
       "reference": "14 अक्टूबर 2025 को लखनऊ–सीतापुर राजमार्ग परियोजना पर शक्ति स्टील वर्क्स की गार्ड रेल लगाते समय दो मज़दूर घायल हुए और खेप के साथ सुरक्षा प्रमाणपत्र नहीं था, इसलिए गंगा रोडवेज़ ने उसे 90 दिनों की परिवीक्षा पर रखा।",
-      "answer": "शक्ति स्टील वर्क्स को एक दुर्घटना के बाद परिवीक्षा पर रखा गया था, जिसमें गार्ड रेल के साथ आवश्यक सुरक्षा प्रमाणपत्र नहीं था [C1][C2]।\n\nविवरण:\n*   14 अक्टूबर 2025 को लखनऊ-सीतापुर राजमार्ग अपग्रेड पर शक्ति स्टील वर्क्स द्वारा आपूर्ति की गई एक गार्ड रेल लगाते समय दो मज़दूर घायल हो गए थे [C1][C2]।\n*   जाँच में पाया गया कि उस खेप के पास कोई सुरक्षा प्रमाणपत्र नहीं था [C1][C2]।\n*   इस घटना के बाद, गंगा रोडवेज़ ने शक्ति स्टील वर्क्स को 20 अक्टूबर 2025 से 90 दिनों की परिवीक्षा पर रखा [C1]।",
+      "answer": "शक्ति स्टील वर्क्स को परिवीक्षा पर इसलिए रखा गया क्योंकि लखनऊ-सीतापुर राजमार्ग पर एक दुर्घटना हुई, जिसमें गार्ड रेल लगाते समय दो मज़दूर घायल हुए और खेप के पास आवश्यक सुरक्षा प्रमाणपत्र नहीं था [C1][C2]।\n\nविवरण:\n*   14 अक्टूबर 2025 को लखनऊ-सीतापुर राजमार्ग अपग्रेड पर शक्ति स्टील वर्क्स द्वारा आपूर्ति की गई गार्ड रेल लगाते समय दो मज़दूर घायल हो गए थे [C1][C2]।\n*   जाँच में पाया गया कि गार्ड रेल के साथ आवश्यक सुरक्षा प्रमाणपत्र नहीं था [C2]।\n*   इस घटना के बाद, गंगा रोडवेज़ ने शक्ति स्टील वर्क्स को 20 अक्टूबर 2025 से 90 दिनों की परिवीक्षा पर रखा [C1]।",
       "grounded": true,
       "contexts": 12,
       "faithfulness": 1.0,
-      "answer_relevancy": 0.999,
-      "context_precision": 0.643
+      "answer_relevancy": 1.0,
+      "context_precision": 1.0,
+      "factual_correctness": 0.91,
+      "context_recall": 1.0
     },
     {
       "id": "q6",
@@ -223,7 +253,9 @@
       "contexts": 4,
       "faithfulness": 1.0,
       "answer_relevancy": 0.95,
-      "context_precision": 1.0
+      "context_precision": 1.0,
+      "factual_correctness": 0.67,
+      "context_recall": 1.0
     },
     {
       "id": "q6",
@@ -237,7 +269,9 @@
       "contexts": 12,
       "faithfulness": 1.0,
       "answer_relevancy": 0.922,
-      "context_precision": 0.683
+      "context_precision": 0.683,
+      "factual_correctness": 0.86,
+      "context_recall": 1.0
     },
     {
       "id": "q6",
@@ -251,7 +285,9 @@
       "contexts": 12,
       "faithfulness": 1.0,
       "answer_relevancy": 0.936,
-      "context_precision": 0.683
+      "context_precision": 0.683,
+      "factual_correctness": 0.33,
+      "context_recall": 1.0
     },
     {
       "id": "q7",
@@ -265,7 +301,9 @@
       "contexts": 4,
       "faithfulness": 1.0,
       "answer_relevancy": 0.845,
-      "context_precision": 1.0
+      "context_precision": 1.0,
+      "factual_correctness": 1.0,
+      "context_recall": 1.0
     },
     {
       "id": "q7",
@@ -279,7 +317,9 @@
       "contexts": 12,
       "faithfulness": 1.0,
       "answer_relevancy": 0.885,
-      "context_precision": 0.591
+      "context_precision": 0.591,
+      "factual_correctness": 0.75,
+      "context_recall": 1.0
     },
     {
       "id": "q7",
@@ -293,7 +333,9 @@
       "contexts": 12,
       "faithfulness": 1.0,
       "answer_relevancy": 0.877,
-      "context_precision": 0.591
+      "context_precision": 0.591,
+      "factual_correctness": 0.83,
+      "context_recall": 1.0
     },
     {
       "id": "q8",
@@ -307,7 +349,9 @@
       "contexts": 4,
       "faithfulness": 1.0,
       "answer_relevancy": 0.929,
-      "context_precision": 1.0
+      "context_precision": 1.0,
+      "factual_correctness": 0.67,
+      "context_recall": 1.0
     },
     {
       "id": "q8",
@@ -321,7 +365,9 @@
       "contexts": 0,
       "faithfulness": null,
       "answer_relevancy": 0.79,
-      "context_precision": 0.0
+      "context_precision": 0.0,
+      "factual_correctness": 0.0,
+      "context_recall": 0.0
     },
     {
       "id": "q8",
@@ -335,7 +381,9 @@
       "contexts": 4,
       "faithfulness": 1.0,
       "answer_relevancy": 0.929,
-      "context_precision": 1.0
+      "context_precision": 1.0,
+      "factual_correctness": 0.67,
+      "context_recall": 1.0
     }
   ]
 }
