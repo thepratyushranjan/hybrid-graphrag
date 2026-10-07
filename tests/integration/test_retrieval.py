@@ -138,7 +138,7 @@ def test_no_evidence_skips_the_llm(retriever: HybridRetriever) -> None:
     llm = FakeLLM(RESULT, by_schema={"QueryAnalysisLLM": {"entities": [], "query_type": "lookup"}})
     retriever.analyzer.llm = llm  # type: ignore[assignment]
     response = asyncio.run(AnswerGenerator(retriever.settings, retriever, llm).answer("anything", mode="graph"))  # type: ignore[arg-type]
-    assert not response.grounded and "could not find" in response.answer
+    assert not response.grounded and "Graph mode" in response.answer  # explains why, instead of "not found"
     assert not hasattr(llm, "last_prompt")  # complete() was never called
 
 
@@ -150,7 +150,7 @@ def test_llm_failure_returns_evidence_with_note(retriever: HybridRetriever) -> N
             raise LLMError("ollama/gemma4 request failed: connection refused")
 
     response = asyncio.run(
-        AnswerGenerator(retriever.settings, retriever, BrokenLLM(RESULT)).answer("What does Clause 7.2 impact?")  # type: ignore[arg-type]
+        AnswerGenerator(retriever.settings, retriever, BrokenLLM(RESULT, by_schema=ANALYSIS)).answer("What does Clause 7.2 impact?")  # type: ignore[arg-type]
     )
     assert not response.grounded and "connection refused" in response.answer
     assert response.chunks and response.graph_facts  # the evidence is still returned
@@ -190,3 +190,11 @@ def test_smalltalk_skips_retrieval_and_llm(retriever: HybridRetriever) -> None:
     assert response.intent == "smalltalk" and not response.grounded
     assert response.chunks == [] and response.graph_facts == [] and response.citations == []
     assert llm.calls == 0 and response.answer.startswith("Hi!")
+
+
+def test_uncited_answer_is_retried_once(retriever: HybridRetriever) -> None:
+    llm = FakeLLM(RESULT, by_schema=ANALYSIS)
+    llm.answers = ["DataSecure is implied to be impacted.", "Clause 7.2 impacts DataSecure Cloud [G1]."]
+    response = asyncio.run(AnswerGenerator(retriever.settings, retriever, llm).answer("What does Clause 7.2 impact?"))  # type: ignore[arg-type]
+    assert "previous answer cited no sources" in llm.last_prompt  # type: ignore[attr-defined]
+    assert [c.cite_id for c in response.citations] == ["G1"] and "generate_retry" in response.timings_ms

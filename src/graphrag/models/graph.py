@@ -12,7 +12,7 @@ ENTITY_TYPES: tuple[EntityType, ...] = ("Person", "Organization", "Location", "E
 PREDICATES: tuple[str, ...] = (
     "WORKS_FOR", "LEADS", "SUBSIDIARY_OF", "OWNS", "SUPPLIES", "CONTRACTED_BY", "SUBCONTRACTS_TO",
     "PARTNER_OF", "LOCATED_IN", "IMPACTS", "PARTICIPATED_IN", "CAUSED", "OCCURRED_AT", "MEMBER_OF",
-    "PRODUCES", "RELATED_TO",
+    "PRODUCES", "HAS_SKILL", "USES", "STUDIED_AT", "RELATED_TO",
 )
 
 

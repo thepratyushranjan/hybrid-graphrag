@@ -7,9 +7,10 @@ import time
 
 from graphrag.config import Settings
 from graphrag.generation.citation_validator import validate
-from graphrag.generation.prompts import build_user_prompt, number_evidence, system_prompt
+from graphrag.generation.prompts import CITATION_REMINDER, build_user_prompt, number_evidence, system_prompt
 from graphrag.generation.smalltalk import SmallTalk, detect_smalltalk, smalltalk_reply
 from graphrag.llm.client import LLMClient, LLMError
+from graphrag.llm.registry import LLMRegistry
 from graphrag.models import (
     CitedFact,
     QueryAnalysis,
@@ -29,6 +30,15 @@ NOT_FOUND = {
     "en": "I could not find information about this in the knowledge base.",
     "hi": "मुझे इस बारे में नॉलेज बेस में कोई जानकारी नहीं मिली।",
 }
+GRAPH_NO_ENTITY = (
+    "Graph mode answers only from the knowledge graph, and it needs a named entity that exists in the graph "
+    "(a person, organization, place, project...). None was found in your question. Name the entity, or use "
+    "hybrid mode, which also searches the document text."
+)
+GRAPH_NO_FACTS = (
+    "The knowledge graph has no relationships for {names} that answer this. Try hybrid mode, which also searches "
+    "the document text."
+)
 LLM_UNAVAILABLE = "The answer could not be generated ({reason}). The retrieved evidence is shown below."
 
 
@@ -59,11 +69,22 @@ def build_subgraph(facts: list[CitedFact]) -> Subgraph:
     return Subgraph(nodes=list(nodes.values()), edges=edges)
 
 
+class ProviderUnavailable(LLMError):
+    """The provider picked for a question can't be used (no key, not running, unknown model)."""
+
+
 class AnswerGenerator:
-    def __init__(self, settings: Settings, retriever: HybridRetriever, llm: LLMClient | None) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        retriever: HybridRetriever,
+        llm: LLMClient | None,
+        registry: LLMRegistry | None = None,
+    ) -> None:
         self.settings = settings
         self.retriever = retriever
-        self.llm = llm
+        self.llm = llm  # default provider
+        self.registry = registry
 
     async def answer(
         self,
@@ -73,23 +94,32 @@ class AnswerGenerator:
         hops: int | None = None,
         filters: QueryFilters | None = None,
         rerank: bool | None = None,
+        llm_provider: str | None = None,
     ) -> QueryResponse:
         if (kind := detect_smalltalk(question)) is not None:
             return await self._smalltalk(question, kind, mode)
-        result = await self.retriever.retrieve(question, mode, top_k, hops, filters, rerank)
+        llm = self.llm
+        if llm_provider and self.registry is not None:
+            try:
+                llm = await asyncio.to_thread(self.registry.get, llm_provider)
+            except LLMError as exc:
+                raise ProviderUnavailable(str(exc)) from exc
+        # the same provider analyses the question and writes the answer; retrieval itself is provider-independent
+        result = await self.retriever.retrieve(question, mode, top_k, hops, filters, rerank, llm)
         chunks, facts = number_evidence(result)
         language = result.analysis.language
         base = {
             "question": question, "language": language, "mode": mode, "chunks": chunks, "graph_facts": facts,
             "subgraph": build_subgraph(facts), "aggregates": result.aggregates, "analysis": result.analysis,
+            "llm": {"provider": llm.provider, "model": llm.model} if llm else None,
         }
         timings = dict(result.timings_ms)
 
         # No-evidence path: don't let the LLM guess
         if not has_evidence(result, self.settings.min_evidence_score):
-            return QueryResponse(**base, answer=NOT_FOUND.get(language, NOT_FOUND["en"]), grounded=False,
+            return QueryResponse(**base, answer=self._not_found(result, mode, language), grounded=False,
                                  timings_ms=timings)
-        if self.llm is None:
+        if llm is None:
             return QueryResponse(**base, answer=LLM_UNAVAILABLE.format(reason="no LLM configured"),
                                  grounded=False, timings_ms=timings)
 
@@ -97,7 +127,7 @@ class AnswerGenerator:
         started = time.perf_counter()
         try:
             raw = await asyncio.to_thread(
-                self.llm.complete, system_prompt(language), user, self.settings.answer_max_tokens, 0.0
+                llm.complete, system_prompt(language), user, self.settings.answer_max_tokens, 0.0
             )
         except LLMError as exc:
             logger.error("Answer generation failed: %s", exc)
@@ -107,6 +137,17 @@ class AnswerGenerator:
         timings["total"] = round(timings.get("total", 0) + timings["generate"], 1)
 
         checked = validate(raw, chunks, facts)
+        if not checked.citations and (chunks or facts):
+            # Local models sometimes ignore the citation rules (seen with graph-only evidence): retry once
+            retry_user = user + "\n\n" + CITATION_REMINDER.format(answer=raw)
+            try:
+                raw = await asyncio.to_thread(
+                    llm.complete, system_prompt(language), retry_user, self.settings.answer_max_tokens, 0.0
+                )
+                checked = validate(raw, chunks, facts)
+                timings["generate_retry"] = round((time.perf_counter() - started) * 1000 - timings["generate"], 1)
+            except LLMError as exc:
+                logger.warning("Citation retry failed: %s", exc)
         if checked.invalid:
             logger.warning("Removed citations not in the prompt: %s", checked.invalid)
         return QueryResponse(
@@ -118,6 +159,16 @@ class AnswerGenerator:
             uncited_sentences=checked.uncited_sentences,
             timings_ms=timings,
         )
+
+    @staticmethod
+    def _not_found(result: RetrievalResult, mode: RetrievalMode, language: str) -> str:
+        """In graph mode, explain why the graph alone couldn't answer instead of a bare "not found"."""
+        if mode == "graph" and result.analysis.query_type != "aggregation":
+            if not result.analysis.entity_ids:
+                return GRAPH_NO_ENTITY
+            names = ", ".join(e.entity_name or e.text for e in result.analysis.entities if e.entity_id)
+            return GRAPH_NO_FACTS.format(names=names)
+        return NOT_FOUND.get(language, NOT_FOUND["en"])
 
     async def _smalltalk(self, question: str, kind: SmallTalk, mode: RetrievalMode) -> QueryResponse:
         """Answer greetings / thanks / help directly: no retrieval, no LLM, no evidence."""

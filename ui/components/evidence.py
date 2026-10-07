@@ -50,10 +50,31 @@ def render_citations(citations: list[dict[str, Any]], msg: int, public_api: str)
                             unsafe_allow_html=True)
 
 
+def render_rerank_effect(chunks: list[dict[str, Any]]) -> None:
+    """Bonus: how the cross-encoder reordered the fused candidates (position before -> after)."""
+    rows = [
+        {
+            "": c["cite_id"],
+            "Source": c["item"]["chunk"]["source"],
+            "Before rerank": c["item"].get("fused_rank"),
+            "After rerank": i,
+            "Move": ("▲ " if c["item"]["fused_rank"] > i else "▼ " if c["item"]["fused_rank"] < i else "= ")
+            + str(abs(c["item"]["fused_rank"] - i)),
+            "Rerank score": round(c["item"]["rerank_score"], 2),
+        }
+        for i, c in enumerate(chunks, start=1)
+        if c["item"].get("rerank_score") is not None and c["item"].get("fused_rank")
+    ]
+    if rows:
+        st.markdown("**Rerank effect** (position after vector + graph fusion → after the cross-encoder)")
+        st.dataframe(rows, hide_index=True, width="stretch")
+
+
 def render_chunk_cards(chunks: list[dict[str, Any]], used: set[str], public_api: str) -> None:
     with st.expander(f"📄 Text excerpts ({len(chunks)})"):
         if not chunks:
             st.caption("No text excerpts.")
+        render_rerank_effect(chunks)
         for c in chunks:
             item, ch = c["item"], c["item"]["chunk"]
             where = f"page {ch['page']}" if ch.get("page") else (ch.get("section") or "").split(" > ")[-1]
@@ -63,6 +84,8 @@ def render_chunk_cards(chunks: list[dict[str, Any]], used: set[str], public_api:
                 scores.append(f"vector {item['vector_score']:.3f}")
             if item.get("rerank_score") is not None:
                 scores.append(f"rerank {item['rerank_score']:.2f}")
+            if item.get("fused_rank"):
+                scores.append(f"fused rank {item['fused_rank']}")
             meta = [x for x in (ch.get("language"), ", ".join(ch.get("dates", [])[:3]),
                                 ch["extraction_method"].replace("_", " ") if ch.get("extraction_method") != "text" else "")
                     if x]

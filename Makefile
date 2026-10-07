@@ -27,7 +27,7 @@ lock:           ## regenerate the fully pinned requirements.txt from requirement
 		--emit-index-url --no-header
 
 test: env       ## run the test suite inside the api container (needs `make up`)
-	docker compose run --rm --no-deps -v "$$PWD/tests":/app/tests -v "$$PWD/ui":/app/ui api pytest -q tests
+	docker compose run --rm --no-deps -v "$$PWD/src":/app/src -v "$$PWD/tests":/app/tests -v "$$PWD/ui":/app/ui api pytest -q tests
 
 seed:           ## ingest the sample documents in data/samples (needs `make up`)
 	docker compose exec api python scripts/seed.py
@@ -38,5 +38,5 @@ search:         ## vector search, e.g. make search q="road accident" args="--lan
 compare:        ## vector-only vs graph-only vs hybrid, e.g. make compare q="your question"
 	docker compose exec api python scripts/compare_modes.py $(q)
 
-eval:           ## run the Ragas evaluation
-	@echo "eval: available once the query pipeline is built (bonus: Ragas)"; exit 1
+eval:           ## Ragas: faithfulness / answer relevancy / context precision for vector, graph, hybrid
+	docker compose exec api python eval/run_ragas.py $(args)

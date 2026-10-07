@@ -10,6 +10,7 @@ from typing import TypeVar
 from graphrag.config import Settings
 from graphrag.embeddings.embedder import Embedder
 from graphrag.graph.neo4j_store import Neo4jStore
+from graphrag.llm.client import LLMClient
 from graphrag.ingestion.chunker import detect_language
 from graphrag.models import (
     Aggregate,
@@ -57,6 +58,7 @@ class HybridRetriever:
         hops: int | None = None,
         filters: QueryFilters | None = None,
         rerank: bool | None = None,
+        llm: LLMClient | None = None,
     ) -> RetrievalResult:
         top_k = top_k or self.settings.top_k
         reranker = self.reranker if rerank is not False else None  # False = caller switched it off
@@ -96,7 +98,7 @@ class HybridRetriever:
             nonlocal seed_hits
             if mode == "vector":
                 return self._apply_explicit(QueryAnalysis(language=detect_language(question)), filters), [], [], []
-            analysis = await timed("query_analysis", lambda: self.analyzer.analyze(question))
+            analysis = await timed("query_analysis", lambda: self.analyzer.analyze(question, llm=llm))
             await timed("check_filters", lambda: self._drop_empty_filters(analysis))  # inferred filters only
             self._apply_explicit(analysis, filters)
             if mode == "hybrid" and not analysis.entity_ids and analysis.query_type == "relationship":

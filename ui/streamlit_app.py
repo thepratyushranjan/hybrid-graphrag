@@ -46,6 +46,8 @@ def render_ingest_result(data: dict[str, Any]) -> None:
 def render_analysis(data: dict[str, Any]) -> None:
     a = data["analysis"]
     parts = [f"mode **{data['mode']}**", f"query type **{a['query_type']}**", f"language **{a['language']}**"]
+    if data.get("llm"):
+        parts.insert(0, f"🤖 **{data['llm']['provider']} · {data['llm']['model']}**")
     entities = [e.get("entity_name") or e["text"] for e in a.get("entities", []) if e.get("origin") == "question"]
     seeds = [e.get("entity_name") for e in a.get("entities", []) if e.get("origin") == "vector"]
     if entities:
@@ -156,6 +158,27 @@ with st.sidebar:
                         st.error(error)
 
     st.divider()
+    st.header("🤖 Answer model")
+    providers = client.providers()
+    usable = [p for p in (providers.data or {}).get("items", []) if p["available"]] if providers.ok else []
+    blocked = [p for p in (providers.data or {}).get("items", []) if not p["available"]] if providers.ok else []
+    llm_provider: str | None = None
+    if usable:
+        # default: the local model if it's running, else the server's default provider
+        default = next((i for i, p in enumerate(usable) if p["local"]),
+                       next((i for i, p in enumerate(usable) if p["default"]), 0))
+        labels = {p["provider"]: f"{p['provider'].capitalize()} · {p['model']}" + (" (local)" if p["local"] else "")
+                  for p in usable}
+        llm_provider = st.selectbox("Used for query analysis and the answer", list(labels), index=default,
+                                    format_func=labels.get)
+        st.caption("The knowledge graph is built at upload time by the server's default model, so every model "
+                   "answers from the same evidence.")
+    else:
+        st.error(providers.error if not providers.ok else "No LLM provider is available")
+    for p in blocked:
+        st.caption(f"❌ {p['provider'].capitalize()} · {p['model']} — {p['reason']}")
+
+    st.divider()
     st.header("🔎 Retrieval")
     mode = st.radio("Mode", ["hybrid", "vector", "graph"], horizontal=True,
                     help="Compare vector-only, graph-only and hybrid retrieval on the same question")
@@ -186,7 +209,8 @@ if question := st.chat_input("Ask a question about your documents…"):
         st.markdown(question)
     with st.chat_message("assistant"):
         with st.spinner("Retrieving from Qdrant + Neo4j and writing the answer…"):
-            result = client.query(question, top_k=top_k, hops=hops, mode=mode, rerank=rerank)
+            result = client.query(question, top_k=top_k, hops=hops, mode=mode, rerank=rerank,
+                                  llm_provider=llm_provider)
         if result.ok and result.data is not None:
             payload: dict[str, Any] = result.data
         else:

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -17,6 +17,9 @@ class RetrieveRequest(BaseModel):
     hops: int | None = Field(default=None, ge=1, le=2)
     filters: QueryFilters | None = Field(default=None, description="Explicit filters (never dropped)")
     rerank: bool | None = Field(default=None, description="Cross-encoder reranking; null = server default")
+    llm_provider: Literal["ollama", "openai", "gemini"] | None = Field(
+        default=None, description="LLM for query analysis + answer (see GET /llm/providers); null = server default"
+    )
 
 
 @router.post("/retrieve", response_model=RetrievalResult)

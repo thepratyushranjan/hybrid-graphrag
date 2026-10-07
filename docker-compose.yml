@@ -55,6 +55,7 @@ services:
     volumes:
       - ./data:/app/data        # sample documents for `make seed`
       - llm_cache:/app/.cache/llm   # LLM extraction cache: re-ingesting never re-calls the LLM
+      - ./eval:/app/eval        # Ragas test set in, results out (`make eval`)
     extra_hosts:
       - "host.docker.internal:host-gateway"   # lets the container reach Ollama on your machine (Linux)
     ports:

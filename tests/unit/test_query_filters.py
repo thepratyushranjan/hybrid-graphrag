@@ -45,3 +45,17 @@ def test_filters_need_the_question_to_name_them(
     analyzer: QueryAnalyzer, question: str, hint: dict[str, str], expected: dict[str, str]
 ) -> None:
     assert analyzer._filters(QueryAnalysisLLM(**hint), question) == expected  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("name", ["Person", "this person", "the company", "His", "यह व्यक्ति", "vendors"])
+def test_generic_words_are_not_entities(name: str) -> None:
+    from graphrag.retrieval.query_analyzer import is_generic
+
+    assert is_generic(name)
+
+
+@pytest.mark.parametrize("name", ["Pratyush", "Ganga Smart Power", "Clause 7.2", "this pratyush"])
+def test_names_are_entities(name: str) -> None:
+    from graphrag.retrieval.query_analyzer import is_generic
+
+    assert not is_generic(name)

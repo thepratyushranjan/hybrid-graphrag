@@ -58,6 +58,7 @@ class QueryResponse(BaseModel):
     mode: RetrievalMode
     grounded: bool  # False = no LLM call (small talk / no evidence / LLM unavailable)
     intent: Literal["question", "smalltalk"] = "question"
+    llm: dict[str, str] | None = None  # {"provider", "model"} that analysed the question and wrote the answer
     citations: list[Citation] = Field(default_factory=list)  # only those actually used, in order of use
     invalid_citations: list[str] = Field(default_factory=list)  # cited ids that weren't in the prompt (removed)
     uncited_sentences: list[str] = Field(default_factory=list)  # answer sentences without any citation

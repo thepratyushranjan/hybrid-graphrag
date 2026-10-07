@@ -1,6 +1,15 @@
 --index-url https://pypi.org/simple
 --extra-index-url https://download.pytorch.org/whl/cpu
 
+aiohappyeyeballs==2.7.1
+    # via aiohttp
+aiohttp==3.14.4
+    # via
+    #   fsspec
+    #   instructor
+    #   langchain-community
+aiosignal==1.4.0
+    # via aiohttp
 altair==6.3.0
     # via streamlit
 annotated-doc==0.0.5
@@ -18,10 +27,13 @@ anyio==4.15.1
     #   starlette
     #   streamlit
     #   watchfiles
+appdirs==1.4.4
+    # via ragas
 asttokens==3.0.2
     # via stack-data
 attrs==26.1.0
     # via
+    #   aiohttp
     #   jsonschema
     #   referencing
 certifi==2026.7.22
@@ -29,6 +41,8 @@ certifi==2026.7.22
     #   httpcore
     #   httpx
     #   requests
+cfgv==3.5.0
+    # via pre-commit
 charset-normalizer==3.5.2
     # via requests
 click==8.5.0
@@ -38,18 +52,44 @@ click==8.5.0
     #   uvicorn
 cloudpickle==3.1.2
     # via joblib
+dataclasses-json==0.6.7
+    # via langchain-community
+datasets==5.1.0
+    # via ragas
+dill==0.4.1
+    # via
+    #   datasets
+    #   multiprocess
+diskcache==5.6.3
+    # via
+    #   instructor
+    #   ragas
+distlib==0.4.3
+    # via virtualenv
 distro==1.9.0
-    # via langsmith
+    # via
+    #   langsmith
+    #   openai
+docstring-parser==0.18.0
+    # via instructor
 executing==2.2.1
     # via stack-data
 fastapi==0.142.2
     # via -r requirements.in
 filelock==4.0.12
     # via
+    #   datasets
     #   huggingface-hub
+    #   python-discovery
     #   torch
-fsspec==2026.9.0
+    #   virtualenv
+frozenlist==1.8.0
     # via
+    #   aiohttp
+    #   aiosignal
+fsspec==2026.7.0
+    # via
+    #   datasets
     #   huggingface-hub
     #   torch
 grpcio==1.84.0
@@ -78,26 +118,34 @@ httpx==0.28.1
     #   -r requirements.in
     #   huggingface-hub
     #   langchain-core
-    #   qdrant-client
-httpx2==2.13.1
-    # via
-    #   langsmith
+    #   langgraph-sdk
     #   openai
+    #   qdrant-client
+httpx-sse==0.4.3
+    # via langchain-community
+httpx2==2.13.1
+    # via langsmith
 huggingface-hub==1.33.0
     # via
+    #   datasets
     #   sentence-transformers
     #   tokenizers
     #   transformers
 hyperframe==6.1.0
     # via h2
+identify==2.6.20
+    # via pre-commit
 idna==3.20
     # via
     #   anyio
     #   httpx
     #   httpx2
     #   requests
+    #   yarl
 iniconfig==2.3.0
     # via pytest
+instructor==1.12.0
+    # via ragas
 ipython==9.17.1
     # via pyvis
 ipython-pygments-lexers==1.1.1
@@ -109,11 +157,14 @@ jedi==0.20.0
 jinja2==3.1.6
     # via
     #   altair
+    #   instructor
     #   pydeck
     #   pyvis
     #   torch
-jiter==0.17.0
-    # via openai
+jiter==0.10.0
+    # via
+    #   instructor
+    #   openai
 joblib==1.6.0
     # via scikit-learn
 jsonpatch==1.33
@@ -126,67 +177,129 @@ jsonschema==4.26.0
     # via altair
 jsonschema-specifications==2025.9.1
     # via jsonschema
+langchain==1.3.2
+    # via
+    #   langchain-community
+    #   ragas
+langchain-community==0.3.31
+    # via
+    #   -r requirements.in
+    #   ragas
 langchain-core==1.6.6
-    # via langchain-text-splitters
+    # via
+    #   langchain
+    #   langchain-community
+    #   langchain-openai
+    #   langchain-text-splitters
+    #   langgraph
+    #   langgraph-checkpoint
+    #   langgraph-prebuilt
+    #   ragas
+langchain-openai==1.1.9
+    # via ragas
 langchain-protocol==0.0.19
     # via langchain-core
 langchain-text-splitters==1.1.3
     # via -r requirements.in
 langdetect==1.0.9
     # via -r requirements.in
+langgraph==1.2.2
+    # via langchain
+langgraph-checkpoint==4.2.0
+    # via
+    #   langgraph
+    #   langgraph-prebuilt
+langgraph-prebuilt==1.1.0
+    # via langgraph
+langgraph-sdk==0.3.15
+    # via langgraph
 langsmith==0.14.4
-    # via langchain-core
+    # via
+    #   langchain-community
+    #   langchain-core
 markdown-it-py==4.2.0
     # via rich
 markupsafe==3.0.4
     # via jinja2
+marshmallow==3.26.2
+    # via dataclasses-json
 matplotlib-inline==0.2.2
     # via ipython
 mdurl==0.1.2
     # via markdown-it-py
 mpmath==1.3.0
     # via sympy
+multidict==6.9.1
+    # via
+    #   aiohttp
+    #   yarl
+multiprocess==0.70.19
+    # via datasets
+mypy-extensions==1.1.0
+    # via typing-inspect
 narwhals==2.26.0
     # via
     #   altair
     #   scikit-learn
 neo4j==6.4.0
     # via -r requirements.in
+nest-asyncio==1.6.0
+    # via ragas
 networkx==3.6.1
     # via
     #   pyvis
+    #   ragas
     #   torch
+nodeenv==1.11.0
+    # via pre-commit
 numpy==2.4.6
     # via
+    #   datasets
+    #   langchain-community
     #   opencv-python-headless
     #   pandas
     #   pydeck
     #   qdrant-client
+    #   ragas
     #   scikit-learn
+    #   scikit-network
     #   scipy
     #   sentence-transformers
     #   streamlit
     #   transformers
-openai==3.24.0
-    # via -r requirements.in
+openai==1.109.1
+    # via
+    #   -r requirements.in
+    #   instructor
+    #   langchain-openai
+    #   ragas
 opencv-python-headless==5.0.0.93
     # via -r requirements.in
 opentelemetry-api==1.45.0
     # via fastapi
 orjson==3.12.0
-    # via langsmith
+    # via
+    #   langgraph-sdk
+    #   langsmith
+ormsgpack==1.12.2
+    # via langgraph-checkpoint
 packaging==26.3
     # via
     #   altair
+    #   datasets
     #   huggingface-hub
     #   langchain-core
     #   langsmith
+    #   marshmallow
     #   pytesseract
     #   pytest
     #   streamlit
     #   transformers
+    #   virtualenv
 pandas==3.0.6
-    # via streamlit
+    # via
+    #   datasets
+    #   streamlit
 parso==0.8.7
     # via jedi
 pexpect==4.9.0
@@ -195,13 +308,22 @@ pillow==12.3.0
     # via
     #   -r requirements.in
     #   pytesseract
+    #   ragas
     #   streamlit
+platformdirs==4.12.3
+    # via virtualenv
 pluggy==1.6.0
     # via pytest
 portalocker==3.2.0
     # via qdrant-client
+pre-commit==4.6.2
+    # via instructor
 prompt-toolkit==3.0.53
     # via ipython
+propcache==0.5.4
+    # via
+    #   aiohttp
+    #   yarl
 protobuf==7.36.2
     # via
     #   qdrant-client
@@ -213,19 +335,29 @@ ptyprocess==0.7.0
 pure-eval==0.2.4
     # via stack-data
 pyarrow==25.0.1
-    # via streamlit
+    # via
+    #   datasets
+    #   streamlit
 pydantic==2.13.5
     # via
     #   fastapi
+    #   instructor
+    #   langchain
     #   langchain-core
+    #   langgraph
     #   langsmith
     #   openai
     #   pydantic-settings
     #   qdrant-client
+    #   ragas
 pydantic-core==2.46.5
-    # via pydantic
+    # via
+    #   instructor
+    #   pydantic
 pydantic-settings==2.15.0
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   langchain-community
 pydeck==0.9.3
     # via streamlit
 pygments==2.21.0
@@ -242,6 +374,8 @@ pytest==9.1.1
     # via -r requirements.in
 python-dateutil==2.9.0.post0
     # via pandas
+python-discovery==1.6.1
+    # via virtualenv
 python-dotenv==1.2.4
     # via
     #   pydantic-settings
@@ -256,11 +390,16 @@ pyvis==0.3.2
     # via -r requirements.in
 pyyaml==6.0.3
     # via
+    #   datasets
     #   huggingface-hub
+    #   langchain-community
     #   langchain-core
+    #   pre-commit
     #   transformers
     #   uvicorn
 qdrant-client==1.19.1
+    # via -r requirements.in
+ragas==0.4.3
     # via -r requirements.in
 referencing==0.37.0
     # via
@@ -272,14 +411,19 @@ regex==2026.9.29
     #   transformers
 requests==2.34.2
     # via
+    #   instructor
+    #   langchain-community
     #   langsmith
     #   requests-toolbelt
     #   streamlit
     #   tiktoken
 requests-toolbelt==1.0.0
     # via langsmith
-rich==15.0.0
-    # via typer
+rich==14.3.4
+    # via
+    #   instructor
+    #   ragas
+    #   typer
 rpds-py==2026.9.1
     # via
     #   jsonschema
@@ -288,9 +432,12 @@ safetensors==0.8.0
     # via transformers
 scikit-learn==1.9.1
     # via sentence-transformers
+scikit-network==0.33.5
+    # via ragas
 scipy==1.17.1
     # via
     #   scikit-learn
+    #   scikit-network
     #   sentence-transformers
 sentence-transformers==6.1.0
     # via -r requirements.in
@@ -306,6 +453,8 @@ sniffio==1.3.1
     # via
     #   langsmith
     #   openai
+sqlalchemy==2.1.3
+    # via langchain-community
 stack-data==0.6.3
     # via ipython
 starlette==1.7.0
@@ -317,11 +466,17 @@ streamlit==1.65.0
 sympy==1.14.0
     # via torch
 tenacity==9.1.4
-    # via langchain-core
+    # via
+    #   instructor
+    #   langchain-community
+    #   langchain-core
 threadpoolctl==3.7.0
     # via scikit-learn
 tiktoken==0.14.0
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   langchain-openai
+    #   ragas
 tokenizers==0.23.2
     # via
     #   sentence-transformers
@@ -334,7 +489,10 @@ torch==2.14.1+cpu
     #   sentence-transformers
 tqdm==4.70.1
     # via
+    #   datasets
     #   huggingface-hub
+    #   openai
+    #   ragas
     #   sentence-transformers
     #   transformers
 traitlets==5.16.1
@@ -348,9 +506,14 @@ truststore==0.10.4
     #   httpcore2
     #   httpx2
 typer==0.27.2
-    # via transformers
+    # via
+    #   instructor
+    #   ragas
+    #   transformers
 typing-extensions==4.16.0
     # via
+    #   aiohttp
+    #   aiosignal
     #   altair
     #   anyio
     #   fastapi
@@ -367,10 +530,14 @@ typing-extensions==4.16.0
     #   pydantic-core
     #   referencing
     #   sentence-transformers
+    #   sqlalchemy
     #   starlette
     #   streamlit
     #   torch
+    #   typing-inspect
     #   typing-inspection
+typing-inspect==0.9.0
+    # via dataclasses-json
 typing-inspection==0.4.4
     # via
     #   fastapi
@@ -390,6 +557,8 @@ uvicorn==0.54.0
     #   streamlit
 uvloop==0.23.0
     # via uvicorn
+virtualenv==21.14.5
+    # via pre-commit
 watchdog==6.0.0
     # via streamlit
 watchfiles==1.3.0
@@ -402,6 +571,11 @@ websockets==17.2
     #   streamlit
     #   uvicorn
 xxhash==4.0.1
-    # via langsmith
+    # via
+    #   datasets
+    #   langgraph
+    #   langsmith
+yarl==1.25.1
+    # via aiohttp
 zstandard==0.25.0
     # via langsmith

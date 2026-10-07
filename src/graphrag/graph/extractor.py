@@ -28,13 +28,14 @@ from graphrag.models import (
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "v2"  # bump when the prompt changes, so cached extractions are refreshed
+PROMPT_VERSION = "v4"  # bump when the prompt changes, so cached extractions are refreshed
 
 _ID_PREFIX: dict[EntityType, str] = {
     "Person": "person", "Organization": "org", "Location": "loc", "Event": "event", "Concept": "concept",
 }
 _ORG_SUFFIXES = {"ltd", "limited", "pvt", "private", "inc", "llp", "llc", "corp", "corporation", "co", "plc"}
 _NON_WORD = re.compile(r"[^\w]+", re.UNICODE)
+_PARENTHETICAL = re.compile(r"\s*\([^)]*\)\s*$")
 _SPACES = re.compile(r"\s+")
 _DASHES_QUOTES = str.maketrans({"–": "-", "—": "-", "‘": "'", "’": "'", "“": '"', "”": '"'})
 
@@ -55,13 +56,23 @@ risks, programmes).
 
 Rules:
 - Every subject and object of a triple MUST also be listed in "entities".
+- Implicit subject: many documents leave the subject out (resume / CV bullets like "Built X using Y", \
+"Skills: Python, SQL", reports written by one organization). If the document context below shows the document \
+is about ONE main person or organization, use it as the subject of such lines and list it in "entities". \
+For lists like "Languages: Python, SQL" create one triple per item (Person HAS_SKILL Python, ...); \
+the evidence is the list line.
+- Document structure is a statement too. An employer heading with a job title and dates (CV "Experience") \
+means main subject WORKS_FOR that organization (evidence: the organization name). A project, product or \
+achievement listed under that heading means main subject PARTICIPATED_IN it and the organization PRODUCES it. \
+An education entry means main subject STUDIED_AT the institution.
 - Prefer specific named entities over generic nouns: if the text names the vendors a clause impacts, \
 link the clause to each named vendor, not to the word "vendor".
 - Extract only what the text states, never outside knowledge.
 - Directions matter: "A supplies goods or services to B" / "A hosts data for B" -> A SUPPLIES B; \
 "X is a subsidiary of Y" -> X SUBSIDIARY_OF Y; "B contracted vendor A" -> A CONTRACTED_BY B; \
 "clause C applies to / impacts V" -> C IMPACTS V; "P is MD/CEO/head of O" -> P LEADS O; \
-"O is based in L" -> O LOCATED_IN L."""
+"O is based in L" -> O LOCATED_IN L; "P worked at O" -> P WORKS_FOR O; "P knows / is skilled in T" -> \
+P HAS_SKILL T; "project X uses / is built with T" -> X USES T; "P studied at U" -> P STUDIED_AT U."""
 
 
 def _fold(text: str) -> str:
@@ -141,18 +152,23 @@ class TripleExtractor:
         self.cache = cache
         self.system_prompt = SYSTEM_PROMPT.format(predicates=", ".join(PREDICATES))
 
-    def _call_llm(self, chunk: Chunk, resolver: EntityResolver) -> ExtractionResult:
-        # Cache by chunk text + model + prompt version: re-ingestion never re-calls the LLM
-        key = JsonCache.key(PROMPT_VERSION, self.llm.provider, self.llm.model, chunk.text)
+    def _call_llm(self, chunk: Chunk, resolver: EntityResolver, context: str) -> ExtractionResult:
+        # Cache by chunk text + document context + model + prompt version: re-ingestion never re-calls the LLM
+        effort = getattr(self.llm, "extraction_effort", None) or ""
+        key = JsonCache.key(PROMPT_VERSION, self.llm.provider, self.llm.model, effort, context, chunk.text)
         cached = self.cache.get(key)
         if cached is not None:
             return ExtractionResult.model_validate(cached)
         user = (
+            f"Document context (to identify an implicit main subject; extract facts ONLY from the Text):\n"
+            f"{context}\n\n"
             f"Known entities (reuse these exact names when the text refers to them):\n"
             f"{resolver.prompt_list(self.settings.known_entities_limit)}\n\n"
             f"Text:\n<<<\n{chunk.text}\n>>>"
         )
-        result = self.llm.complete_json(self.system_prompt, user, ExtractionResult)
+        result = self.llm.complete_json(
+            self.system_prompt, user, ExtractionResult, reasoning_effort=effort or None
+        )
         self.cache.set(key, result.model_dump())
         return result
 
@@ -165,7 +181,9 @@ class TripleExtractor:
         which covers entities the LLM used but forgot to list. Entities already in the graph only decide
         which node a name maps to, never whether a fact is kept, so results don't depend on ingest order."""
         name = name.strip()
-        match = resolver.lookup(name)
+        # "Roboi.ai (Edge AI Surveillance)" in a triple usually means the listed entity "Roboi.ai"
+        bare = _PARENTHETICAL.sub("", name).strip()
+        match = resolver.lookup(name) or (resolver.lookup(bare) if bare and bare != name else None)
         if match and match.id in mentioned:
             return match
         if len(name) < 3 or _fold(name) not in haystack:
@@ -175,8 +193,8 @@ class TripleExtractor:
             return None  # generic nouns like "vendor"
         return match or resolver.resolve(name, "Concept", [])
 
-    def extract(self, chunk: Chunk, resolver: EntityResolver) -> ChunkGraph:
-        result = self._call_llm(chunk, resolver)
+    def extract(self, chunk: Chunk, resolver: EntityResolver, context: str = "") -> ChunkGraph:
+        result = self._call_llm(chunk, resolver, context)
         haystack = _fold(chunk.text)
 
         mentioned: dict[str, GraphEntity] = {}
@@ -222,3 +240,9 @@ class TripleExtractor:
         # final alias state for each mentioned entity (resolution may have merged more aliases)
         entities = [resolver.entities[eid] for eid in mentioned]
         return ChunkGraph(chunk_id=chunk.chunk_id, entities=entities, relations=relations, dropped=dropped)
+
+
+def document_context(source: str, first_chunk_text: str, chars: int = 300) -> str:
+    """File name + the start of the document (usually its title / author / subject line)."""
+    start = " ".join(first_chunk_text.split())[:chars]
+    return f"File: {source}\nDocument starts with: {start}"

@@ -70,7 +70,10 @@ def reciprocal_rank_fusion(
         item.entity_mentions = mentions.get(item.chunk.chunk_id, 0)
         item.fused_score = round(fused + mention_boost * item.entity_mentions, 6)
         item.score = item.fused_score
-    return sorted(pool.values(), key=lambda c: -c.fused_score)
+    ranked = sorted(pool.values(), key=lambda c: -c.fused_score)
+    for rank, item in enumerate(ranked, start=1):
+        item.fused_rank = rank
+    return ranked
 
 
 def fit_budget(

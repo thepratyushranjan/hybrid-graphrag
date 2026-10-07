@@ -8,12 +8,13 @@ from neo4j.exceptions import AuthError, ServiceUnavailable, SessionExpired
 from qdrant_client.http.exceptions import ResponseHandlingException
 
 from graphrag.api.jobs import JobStore
-from graphrag.api.routes import documents, health, ingest, query, retrieve, stats
+from graphrag.api.routes import documents, health, ingest, llm, query, retrieve, stats
 from graphrag.config import get_settings
 from graphrag.embeddings.embedder import build_embedder
 from graphrag.graph.neo4j_store import Neo4jStore
 from graphrag.generation.synthesizer import AnswerGenerator
 from graphrag.ingestion.pipeline import IngestionPipeline
+from graphrag.llm.registry import LLMRegistry
 from graphrag.retrieval.factory import build_retriever
 from graphrag.vector_store.qdrant_store import QdrantStore
 
@@ -34,16 +35,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.retriever = None
     app.state.generator = None
     app.state.jobs = None
+    app.state.llm_registry = LLMRegistry(settings)
     app.state.pipeline_error = None
     try:
         app.state.qdrant.ensure_collection()
         app.state.neo4j.ensure_schema()
         embedder = build_embedder(settings)
-        app.state.pipeline = IngestionPipeline(settings, embedder, app.state.qdrant, graph_store=app.state.neo4j)
+        app.state.pipeline = IngestionPipeline(
+            settings, embedder, app.state.qdrant, graph_store=app.state.neo4j, llm=app.state.llm_registry.default
+        )
         app.state.retriever = build_retriever(
             settings, embedder, app.state.qdrant, app.state.neo4j, app.state.pipeline.llm
         )
-        app.state.generator = AnswerGenerator(settings, app.state.retriever, app.state.pipeline.llm)
+        app.state.generator = AnswerGenerator(
+            settings, app.state.retriever, app.state.pipeline.llm, registry=app.state.llm_registry
+        )
         app.state.jobs = JobStore(app.state.pipeline)
         logger.info("Ingestion ready: %s (%d-dim)", settings.embedding_model, settings.embedding_dim)
     except Exception as exc:  # noqa: BLE001 - keep the server up; /ingest reports the reason
@@ -89,3 +95,4 @@ app.include_router(retrieve.router)
 app.include_router(query.router)
 app.include_router(stats.router)
 app.include_router(documents.router)
+app.include_router(llm.router)

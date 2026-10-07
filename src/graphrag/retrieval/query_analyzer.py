@@ -2,6 +2,7 @@
 
 import logging
 import re
+import unicodedata
 from datetime import date
 
 from graphrag.config import Settings
@@ -54,11 +55,34 @@ _DOC_TYPE_WORDS = {
     "md": {"markdown", "md"},
     "txt": {"txt", "text"},
 }
+# Words that refer to an entity without naming it ("this person", "the company"): never resolved to a node
+_GENERIC = {
+    "person", "people", "man", "woman", "he", "she", "him", "her", "they", "them", "someone", "candidate",
+    "employee", "author", "user", "company", "companies", "organization", "organisation", "firm", "vendor",
+    "vendors", "supplier", "suppliers", "subsidiary", "subsidiaries", "document", "documents", "file", "resume",
+    "cv", "report", "project", "projects", "place", "location", "city", "event", "concept", "skill", "skills",
+    "व्यक्ति", "कंपनी", "संगठन", "दस्तावेज़",
+}
+_DETERMINERS = {"this", "that", "these", "those", "the", "a", "an", "his", "her", "their", "its", "यह", "वह", "इस", "उस"}
+
+
+def _words(text: str) -> list[str]:
+    """Split on whitespace, punctuation, symbols and "_", keeping letters *and* combining marks together
+    (a regex \\W split cuts Devanagari words like "व्यक्ति" apart at their vowel signs)."""
+    cleaned = "".join(" " if ch == "_" or unicodedata.category(ch)[0] in "PSZ" else ch for ch in text.casefold())
+    return cleaned.split()
+
+
+def is_generic(name: str) -> bool:
+    words = [w for w in _words(name) if w not in _DETERMINERS]
+    return not words or all(w in _GENERIC for w in words)
+
+
 _FILE_WORDS = {"document", "doc", "file", "pdf", "md", "txt", "the", "a", "an", "of", "in", "from"}
 
 
 def _tokens(text: str) -> set[str]:
-    return {t for t in re.split(r"[\W_]+", text.casefold()) if t and t not in _FILE_WORDS}  # "_" splits file names
+    return {t for t in _words(text) if t not in _FILE_WORDS}  # "_" splits file names
 
 
 def match_document(name: str, sources: list[str]) -> str | None:
@@ -83,10 +107,12 @@ class QueryAnalyzer:
         self.llm = llm
         self.cache = cache
 
-    def analyze(self, question: str, today: date | None = None) -> QueryAnalysis:
+    def analyze(self, question: str, today: date | None = None, llm: LLMClient | None = None) -> QueryAnalysis:
+        """`llm` = the provider picked for this question (default: the server's)."""
         language = detect_language(question)
         time_range = self.time_filter(question, today)
-        parsed = self._llm_analysis(question) if self.llm else None
+        llm = llm or self.llm
+        parsed = self._llm_analysis(question, llm) if llm else None
         if parsed is None:
             return QueryAnalysis(
                 language=language, entities=self._fulltext_entities(question), analyzer="fulltext",
@@ -95,6 +121,8 @@ class QueryAnalyzer:
 
         entities: list[QueryEntity] = []
         for e in parsed.entities:
+            if is_generic(e.name) or is_generic(e.english_name):
+                continue  # "this person" / "the company" names nothing
             resolved = self.resolve(e.english_name) or self.resolve(e.name)
             entities.append(
                 QueryEntity(
@@ -144,15 +172,14 @@ class QueryAnalyzer:
                 filters["doc_type"] = parsed.doc_type
         return filters
 
-    def _llm_analysis(self, question: str) -> QueryAnalysisLLM | None:
-        assert self.llm is not None
-        key = JsonCache.key("query", PROMPT_VERSION, self.llm.provider, self.llm.model, question)
+    def _llm_analysis(self, question: str, llm: LLMClient) -> QueryAnalysisLLM | None:
+        key = JsonCache.key("query", PROMPT_VERSION, llm.provider, llm.model, question)
         if (cached := self.cache.get(key)) is not None:
             return QueryAnalysisLLM.model_validate(cached)
         try:
             documents = ", ".join(d["source"] for d in self.graph.document_sources(limit=50)) or "(none)"
             user = f"Available documents: {documents}\n\nQuestion: {question}"
-            result = self.llm.complete_json(SYSTEM_PROMPT, user, QueryAnalysisLLM, max_tokens=1024)
+            result = llm.complete_json(SYSTEM_PROMPT, user, QueryAnalysisLLM, max_tokens=1024)
         except LLMError as exc:
             logger.warning("Query analysis LLM failed, falling back to full-text matching: %s", exc)
             return None

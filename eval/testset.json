@@ -1,0 +1,58 @@
+[
+  {
+    "id": "q1",
+    "language": "en",
+    "type": "lookup",
+    "question": "Who is the Managing Director of Ganga Water Systems?",
+    "reference": "Arif Khan is the Managing Director of Ganga Water Systems Ltd."
+  },
+  {
+    "id": "q2",
+    "language": "en",
+    "type": "multi-hop",
+    "question": "Who leads the subsidiary whose steel supplier was put on probation?",
+    "reference": "Vikram Singh. He is the Managing Director of Ganga Roadways Pvt Ltd, which placed its steel supplier Shakti Steel Works on probation after the guard rail incident."
+  },
+  {
+    "id": "q3",
+    "language": "en",
+    "type": "multi-hop",
+    "question": "Which vendors connected to Ganga Smart Power are impacted by Clause 7.2?",
+    "reference": "DataSecure Cloud Pvt Ltd and NovaGrid Electronics. Both handle customer data for Ganga Smart Power Ltd, and Clause 7.2 requires that data to stay on servers in India."
+  },
+  {
+    "id": "q4",
+    "language": "en",
+    "type": "aggregation",
+    "question": "Which vendor supplies the most Ganga subsidiaries?",
+    "reference": "Brightline Logistics, which supplies two subsidiaries: Ganga Roadways Pvt Ltd and Ganga Water Systems Ltd."
+  },
+  {
+    "id": "q5",
+    "language": "hi",
+    "type": "lookup",
+    "question": "शक्ति स्टील वर्क्स को परिवीक्षा पर क्यों रखा गया?",
+    "reference": "14 अक्टूबर 2025 को लखनऊ–सीतापुर राजमार्ग परियोजना पर शक्ति स्टील वर्क्स की गार्ड रेल लगाते समय दो मज़दूर घायल हुए और खेप के साथ सुरक्षा प्रमाणपत्र नहीं था, इसलिए गंगा रोडवेज़ ने उसे 90 दिनों की परिवीक्षा पर रखा।"
+  },
+  {
+    "id": "q6",
+    "language": "hi",
+    "type": "multi-hop",
+    "question": "गंगा स्मार्ट पावर के विक्रेताओं पर कौन सी धारा लागू होती है?",
+    "reference": "धारा 7.2 (ग्राहक डेटा निवास) लागू होती है; यह गंगा स्मार्ट पावर के विक्रेताओं डेटासिक्योर क्लाउड और नोवाग्रिड इलेक्ट्रॉनिक्स को प्रभावित करती है।"
+  },
+  {
+    "id": "q7",
+    "language": "hinglish",
+    "type": "multi-hop",
+    "question": "Ganga Water Systems ke supplier ko kaun sa clause affect karta hai?",
+    "reference": "Clause 11.4 (Water Treatment Chemicals) affects AquaPure Filters, the membrane and chemical supplier of Ganga Water Systems Ltd."
+  },
+  {
+    "id": "q8",
+    "language": "hinglish",
+    "type": "lookup",
+    "question": "Group ki 2025 mein revenue kitni thi?",
+    "reference": "Group revenue for 2025 was ₹1,240 crore, up 14% on 2024."
+  }
+]

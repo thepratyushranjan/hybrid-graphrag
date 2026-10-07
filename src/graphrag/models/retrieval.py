@@ -122,6 +122,7 @@ class RankedChunk(BaseModel):
     vector_score: float | None = None
     graph_rank: int | None = None  # 1-based rank among graph-linked chunks
     fused_score: float = 0.0
+    fused_rank: int | None = None  # 1-based position after fusion, before reranking
     rerank_score: float | None = None
     entity_mentions: int = 0  # query entities this chunk mentions (graph)
     found_by: list[Literal["vector", "graph"]] = Field(default_factory=list)

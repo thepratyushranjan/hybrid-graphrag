@@ -37,12 +37,19 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     ollama_base_url: str = "http://localhost:11434"
 
-    # LLM & generation
+    # LLM & generation. LLM_PROVIDER / LLM_MODEL = the default (also builds the graph at ingest);
+    # every provider with credentials can also be picked per question in the UI / API.
     llm_provider: Literal["openai", "gemini", "ollama"] = "openai"
     llm_model: str = "gpt-4o-mini"
+    ollama_model: str = "gemma4:latest"
+    openai_model: str = "gpt-4o-mini"
+    gemini_model: str = "gemini-2.5-flash"
     llm_reasoning_effort: str | None = None  # "none" disables thinking on Ollama/Gemini thinking models
     # for the final answer only; multi-step questions need a little thinking ("low") on local models
     answer_reasoning_effort: str | None = None
+    # for graph extraction during ingestion (runs in the background, so slower is fine): "low" roughly doubles
+    # the facts gemma4 extracts from dense, subject-less text like CVs
+    extraction_reasoning_effort: str | None = None
 
     # Embeddings
     embedding_provider: Literal["huggingface", "openai"] = "huggingface"
@@ -104,6 +111,12 @@ class Settings(BaseSettings):
     # "not found in the knowledge base" instead of a guess.
     min_evidence_score: float = Field(default=0.05, ge=0, le=1)
     answer_max_tokens: int = Field(default=1500, ge=100)
+
+    def model_for(self, provider: str) -> str:
+        """LLM_MODEL for the default provider, otherwise that provider's own *_MODEL setting."""
+        if provider == self.llm_provider and self.llm_model:
+            return self.llm_model
+        return {"ollama": self.ollama_model, "openai": self.openai_model, "gemini": self.gemini_model}[provider]
 
     def provider_warnings(self) -> list[str]:
         """Missing keys/models don't stop the server; they are logged and shown in /health."""

@@ -36,17 +36,19 @@ class LLMError(RuntimeError):
 
 
 class LLMClient:
-    def __init__(self, settings: Settings) -> None:
-        self.provider = settings.llm_provider
-        self.model = settings.llm_model
-        self.vision_model = settings.vision_model or settings.llm_model
+    def __init__(self, settings: Settings, provider: str | None = None) -> None:
+        self.provider = provider or settings.llm_provider
+        self.model = settings.model_for(self.provider)
+        is_default = self.provider == settings.llm_provider
+        self.vision_model = (settings.vision_model if is_default else None) or self.model
         # e.g. "none" turns off "thinking" on local models like gemma4 (much faster); unset for gpt-4o-mini
-        self.extra: dict[str, str] = (
-            {"reasoning_effort": settings.llm_reasoning_effort} if settings.llm_reasoning_effort else {}
-        )
-        self.answer_extra: dict[str, str] = (
-            {"reasoning_effort": settings.answer_reasoning_effort} if settings.answer_reasoning_effort else self.extra
-        )
+        # "thinking" settings are tuned for the default (local) model; other providers get their own defaults
+        # (gpt-4o-mini rejects the parameter)
+        llm_effort = settings.llm_reasoning_effort if is_default else None
+        answer_effort = settings.answer_reasoning_effort if is_default else None
+        self.extraction_effort = settings.extraction_reasoning_effort if is_default else None
+        self.extra: dict[str, str] = {"reasoning_effort": llm_effort} if llm_effort else {}
+        self.answer_extra: dict[str, str] = {"reasoning_effort": answer_effort} if answer_effort else self.extra
         if self.provider == "openai":
             api_key, base_url = settings.openai_api_key, None
         elif self.provider == "gemini":
@@ -54,7 +56,8 @@ class LLMClient:
         else:  # ollama ignores the key, but the SDK requires one
             api_key, base_url = "ollama", f"{settings.ollama_base_url.rstrip('/')}/v1"
         if not api_key:
-            raise LLMError(f"LLM_PROVIDER={self.provider} needs an API key in .env")
+            key = "OPENAI_API_KEY" if self.provider == "openai" else "GEMINI_API_KEY"
+            raise LLMError(f"no {key} in .env")
         self.client = OpenAI(api_key=api_key, base_url=base_url, timeout=180, max_retries=2)
         self._ping_cache: tuple[float, str] | None = None
 
@@ -92,7 +95,9 @@ class LLMClient:
             raise LLMError(f"{self.provider}/{self.vision_model} image description failed: {exc}") from exc
         return (resp.choices[0].message.content or "").strip()
 
-    def complete_json(self, system: str, user: str, schema: type[T], max_tokens: int = 4096) -> T:
+    def complete_json(
+        self, system: str, user: str, schema: type[T], max_tokens: int = 4096, reasoning_effort: str | None = None
+    ) -> T:
         """Chat completion constrained to `schema` (JSON schema response format), validated with Pydantic.
 
         On invalid JSON the model gets one retry with the validation error appended.
@@ -111,7 +116,7 @@ class LLMClient:
                     temperature=0,
                     max_tokens=max_tokens,
                     response_format=response_format,  # type: ignore[arg-type]
-                    **self.extra,  # type: ignore[arg-type]
+                    **({"reasoning_effort": reasoning_effort} if reasoning_effort else self.extra),  # type: ignore[arg-type]
                 )
             except OpenAIError as exc:
                 raise LLMError(f"{self.provider}/{self.model} request failed: {exc}") from exc

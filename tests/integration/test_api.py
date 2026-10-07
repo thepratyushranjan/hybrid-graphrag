@@ -70,3 +70,14 @@ def test_documents_are_served_safely(client: TestClient) -> None:
     assert client.get("/documents/..%2F..%2F.env").status_code == 404  # no path traversal
     assert client.get("/documents/secrets.env").status_code == 404  # only document types
     assert client.get("/documents/never_uploaded.pdf").status_code == 404
+
+
+def test_llm_providers_and_unavailable_choice(client: TestClient) -> None:
+    providers = client.get("/llm/providers").json()
+    assert {p["provider"] for p in providers} == {"ollama", "openai", "gemini"}
+    assert sum(p["default"] for p in providers) == 1
+    unavailable = [p for p in providers if not p["available"]]
+    if unavailable:  # e.g. no OpenAI key: choosing it is a clear 422, not a crash
+        resp = client.post("/query", json={"question": "Who leads Ganga Smart Power?",
+                                           "llm_provider": unavailable[0]["provider"]})
+        assert resp.status_code == 422 and "not available" in resp.json()["detail"]

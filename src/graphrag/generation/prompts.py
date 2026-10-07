@@ -13,7 +13,8 @@ SYSTEM_PROMPT = """You answer questions using ONLY the evidence provided below. 
 Citation rules:
 - Cite every claim: [C#] for text excerpts, [G#] for graph relationships, right after the claim. \
 Several sources: [C1][G2].
-- Only use ids that appear in the evidence.
+- Only use ids that appear in the evidence. Every bullet point and every sentence that states a fact needs one.
+- Never infer, assume or guess ("implied by", "likely", "probably"): state only what a [C#] or [G#] says.
 - If the evidence does not contain the answer, say so plainly instead of guessing; you may say what related \
 information the evidence does contain.
 
@@ -24,8 +25,9 @@ When a relationship and an excerpt disagree, trust the excerpt.
 ("the subsidiary whose supplier was put on probation"), first find which entity that is, then follow its \
 relationships (e.g. "Z LEADS Y") to the answer. Cite every step.
 
-Style: answer directly in the first sentence, then add the supporting details. Be concise. \
-Answer in {language}."""
+Style: answer directly in the first sentence, then add the supporting details. Be concise. State the facts \
+themselves and put the citation after them; never write about the sources ("[C1] states that...", \
+"the graph confirms..."). Answer in {language}."""
 
 
 MAX_DATES = 3  # date mentions shown in a [C#] header
@@ -86,3 +88,11 @@ def build_user_prompt(
 
 def system_prompt(language: str) -> str:
     return SYSTEM_PROMPT.format(language=LANGUAGE_NAMES.get(language, "the same language as the question"))
+
+
+CITATION_REMINDER = """Your previous answer cited no sources, so it can't be shown:
+<<<
+{answer}
+>>>
+Rewrite it using ONLY the evidence above. End every claim with its [C#] or [G#] citation and drop anything \
+no excerpt or relationship states. If the evidence doesn't answer the question, say so in one sentence."""

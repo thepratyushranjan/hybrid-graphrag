@@ -1,0 +1,19 @@
+{
+  "meta": "Judge: ollama/gemma4:latest · embeddings: intfloat/multilingual-e5-small · 1 questions · 45s · 20261007-081709 UTC",
+  "rows": [
+    {
+      "id": "q1",
+      "language": "en",
+      "type": "lookup",
+      "mode": "hybrid",
+      "question": "Who is the Managing Director of Ganga Water Systems?",
+      "reference": "Arif Khan is the Managing Director of Ganga Water Systems Ltd.",
+      "answer": "The Managing Director of Ganga Water Systems is Arif Khan [C1][C2][G1].\n\n*   [C1] states that Ganga Water Systems Ltd has a Managing Director named Arif Khan.\n*   [C2] confirms this, noting that Arif Khan, Managing Director of Ganga Water Systems, will review reports every quarter.\n*   [G1] explicitly links Arif Khan as the person who leads Ganga Water Systems Ltd, citing both [C2] and [C1].",
+      "grounded": true,
+      "contexts": 12,
+      "faithfulness": 0.25,
+      "answer_relevancy": 1.0,
+      "context_precision": 0.867
+    }
+  ]
+}

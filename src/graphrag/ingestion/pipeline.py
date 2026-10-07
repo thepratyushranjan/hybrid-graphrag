@@ -16,7 +16,7 @@ import numpy as np
 
 from graphrag.config import Settings
 from graphrag.embeddings.embedder import Embedder
-from graphrag.graph.extractor import EntityResolver, TripleExtractor
+from graphrag.graph.extractor import EntityResolver, TripleExtractor, document_context
 from graphrag.graph.neo4j_store import Neo4jStore
 from graphrag.ingestion.chunker import Chunker
 from graphrag.ingestion.loaders import doc_type_for, load_document, make_doc_id
@@ -95,11 +95,12 @@ class IngestionPipeline:
         assert self.extractor is not None and self.graph_store is not None
         resolver = EntityResolver(self.graph_store.known_entities(self.settings.known_entities_limit))
         graphs: list[ChunkGraph] = []
+        context = document_context(chunks[0].source, chunks[0].text)
         # Sequential on purpose: each chunk sees the entities found in earlier chunks, which keeps names
         # consistent, and it stays within free-tier / local-GPU rate limits.
         for i, chunk in enumerate(chunks, start=1):
             progress(f"extracting graph {i}/{len(chunks)}")
-            graphs.append(self.extractor.extract(chunk, resolver))
+            graphs.append(self.extractor.extract(chunk, resolver, context))
         return graphs
 
     def _similar_documents(self, doc_id: str, vectors: list[list[float]]) -> list[SimilarDocument]:
