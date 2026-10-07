@@ -5,6 +5,9 @@ from collections.abc import Callable
 from graphrag.models import Chunk, GraphFact, RankedChunk
 
 HOP_PENALTY = 0.05  # relevance (0-1) subtracted per extra hop
+ASKED_RELATION_BOOST = 0.2  # fact has the relation the question asks about ("who leads" -> LEADS)
+CHAIN_BOOST = 0.3  # ...and shares an entity with one of the most relevant facts (completes a 2-hop chain)
+CHAIN_ANCHORS = 3
 
 
 def dedupe_facts(facts: list[GraphFact]) -> list[GraphFact]:
@@ -22,18 +25,39 @@ def dedupe_facts(facts: list[GraphFact]) -> list[GraphFact]:
     return list(merged.values())
 
 
-def rank_facts(facts: list[GraphFact], score: Callable[[list[str]], list[float]] | None) -> list[GraphFact]:
+def rank_facts(
+    facts: list[GraphFact],
+    score: Callable[[list[str]], list[float]] | None,
+    asked_predicate: str | None = None,
+) -> list[GraphFact]:
     """Rank by relevance to the question (0-1, from `score`) minus a small per-hop penalty; ties broken by
-    confidence and support count. Without a scorer: hops, confidence, support."""
+    confidence and support count. Without a scorer: hops, confidence, support.
+
+    Multi-hop questions ("who leads the subsidiary whose supplier was put on probation?") match the first hop
+    well but not the second: the cross-encoder scores "X LEADS Y" low against the whole question. So facts with
+    the relation the question asks about are boosted, and boosted more when they share an entity with the most
+    relevant facts - that is the second hop of the chain."""
     facts = dedupe_facts(facts)
-    if score is not None and facts:
-        for fact, relevance in zip(facts, score([f.as_sentence() for f in facts]), strict=True):
-            fact.relevance = round(float(relevance), 4)
-        return sorted(
-            facts,
-            key=lambda f: (-((f.relevance or 0) - HOP_PENALTY * (f.hops - 1)), -f.confidence, -len(f.chunk_ids)),
-        )
-    return sorted(facts, key=lambda f: (f.hops, -f.confidence, -len(f.chunk_ids), f.as_text()))
+    if score is None or not facts:
+        return sorted(facts, key=lambda f: (f.hops, -f.confidence, -len(f.chunk_ids), f.as_text()))
+
+    for fact, relevance in zip(facts, score([f.as_sentence() for f in facts]), strict=True):
+        fact.relevance = round(float(relevance), 4)
+
+    def base(f: GraphFact) -> float:
+        return (f.relevance or 0) - HOP_PENALTY * (f.hops - 1)
+
+    boosts: dict[tuple[str, str, str], float] = {}
+    if asked_predicate:
+        anchors = sorted((f for f in facts if f.predicate != asked_predicate), key=base, reverse=True)[:CHAIN_ANCHORS]
+        anchor_entities = {e for f in anchors for e in (f.subject_id, f.object_id)}
+        for f in facts:
+            if f.predicate == asked_predicate:
+                chained = f.subject_id in anchor_entities or f.object_id in anchor_entities
+                boosts[f.key] = ASKED_RELATION_BOOST + (CHAIN_BOOST if chained else 0.0)
+    return sorted(
+        facts, key=lambda f: (-(base(f) + boosts.get(f.key, 0.0)), -f.confidence, -len(f.chunk_ids))
+    )
 
 
 def graph_chunk_order(facts: list[GraphFact]) -> list[str]:

@@ -60,3 +60,18 @@ def test_template_choice() -> None:
     assert choose_templates(one, hops=2) == ["neighbourhood", "two_hop"]
     assert choose_templates(two, hops=1) == ["neighbourhood", "two_hop", "path", "intersection"]
     assert choose_templates(agg, hops=1) == ["aggregation"]
+
+
+def test_asked_relation_completes_the_chain() -> None:
+    probation = _fact("org:roadways", "RELATED_TO", "org:shakti", ["c1"])  # first hop: very relevant
+    leads = _fact("person:vikram", "LEADS", "org:roadways", ["c2"])  # second hop: low cross-encoder score
+    noise = _fact("person:sunita", "WORKS_FOR", "org:holdings", ["c3"])
+    relevance = {"org:roadways related to": 0.27, "person:vikram leads": 0.002, "person:sunita works": 0.012}
+
+    def scorer(texts: list[str]) -> list[float]:
+        return [next(v for k, v in relevance.items() if t.lower().startswith(k)) for t in texts]
+
+    without = rank_facts([noise, leads, probation], scorer)
+    assert [f.predicate for f in without] == ["RELATED_TO", "WORKS_FOR", "LEADS"]
+    ranked = rank_facts([noise, leads, probation], scorer, asked_predicate="LEADS")
+    assert [f.predicate for f in ranked] == ["LEADS", "RELATED_TO", "WORKS_FOR"]

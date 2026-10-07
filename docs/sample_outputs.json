@@ -1,0 +1,350 @@
+[
+  {
+    "question": "Which vendors connected to Ganga Smart Power are impacted by Clause 7.2?",
+    "mode": "hybrid",
+    "answer": "The vendors connected to Ganga Smart Power that are impacted by Clause 7.2 are DataSecure Cloud Pvt Ltd and NovaGrid Electronics [C1][C2].\n\n*   Clause 7.2 impacts DataSecure Cloud Pvt Ltd and NovaGrid Electronics, both of which are connected to Ganga Smart Power Ltd [C1].\n*   DataSecure Cloud Pvt Ltd hosts meter and customer data for Ganga Smart Power Ltd, and NovaGrid Electronics collects meter readings for Ganga Smart Power Ltd [C2].",
+    "grounded": true,
+    "citations": [
+      "C1",
+      "C2"
+    ],
+    "found_by": [
+      "vector+graph",
+      "vector+graph",
+      "vector",
+      "vector+graph"
+    ],
+    "facts": [
+      "Clause 7.2 — Customer Data Residency -[IMPACTS]-> DataSecure Cloud Pvt Ltd",
+      "Clause 7.2 — Customer Data Residency -[IMPACTS]-> NovaGrid Electronics",
+      "NovaGrid Electronics -[IMPACTS]-> Clause 7.2 — Customer Data Residency",
+      "DataSecure Cloud Pvt Ltd -[IMPACTS]-> Clause 7.2 — Customer Data Residency",
+      "NovaGrid Electronics -[RELATED_TO]-> Ganga Smart Power Ltd"
+    ],
+    "aggregates": [],
+    "seeded": [],
+    "filters": {},
+    "time": null,
+    "timings_ms": {
+      "embed_query": 21.7,
+      "vector_search": 4.5,
+      "query_analysis": 11.6,
+      "check_filters": 0.1,
+      "graph_search": 13.5,
+      "rank_facts": 181.7,
+      "bridge_fetch": 1.9,
+      "entity_mentions": 2.4,
+      "rerank": 256.7,
+      "total": 6570.4,
+      "generate": 6079.6
+    }
+  },
+  {
+    "question": "Who leads the subsidiary whose steel supplier was put on probation?",
+    "mode": "vector",
+    "answer": "The evidence does not state who leads the subsidiary whose steel supplier was put on probation.\n\nThe evidence establishes the following facts:\n*   Shakti Steel Works, the steel supplier, was put on probation by Ganga Roadways Pvt Ltd [C2].\n*   Shakti Steel Works is contracted by Ganga Roadways Pvt Ltd [C4].",
+    "grounded": true,
+    "citations": [
+      "C2",
+      "C4"
+    ],
+    "found_by": [
+      "vector",
+      "vector",
+      "vector",
+      "vector"
+    ],
+    "facts": [],
+    "aggregates": [],
+    "seeded": [],
+    "filters": {},
+    "time": null,
+    "timings_ms": {
+      "embed_query": 17.3,
+      "vector_search": 2.6,
+      "rank_facts": 0.1,
+      "bridge_fetch": 0.0,
+      "rerank": 222.1,
+      "total": 7671.8,
+      "generate": 7428.5
+    }
+  },
+  {
+    "question": "Who leads the subsidiary whose steel supplier was put on probation?",
+    "mode": "graph",
+    "answer": "Graph mode answers only from the knowledge graph, and it needs a named entity that exists in the graph (a person, organization, place, project...). None was found in your question. Name the entity, or use hybrid mode, which also searches the document text.",
+    "grounded": false,
+    "citations": [],
+    "found_by": [],
+    "facts": [],
+    "aggregates": [],
+    "seeded": [],
+    "filters": {},
+    "time": null,
+    "timings_ms": {
+      "embed_query": 20.3,
+      "query_analysis": 3.8,
+      "check_filters": 0.1,
+      "graph_search": 0.1,
+      "rank_facts": 0.1,
+      "bridge_fetch": 0.0,
+      "entity_mentions": 0.0,
+      "total": 24.5
+    }
+  },
+  {
+    "question": "Who leads the subsidiary whose steel supplier was put on probation?",
+    "mode": "hybrid",
+    "answer": "Vikram Singh leads Ganga Roadways Pvt Ltd, which was the entity that placed Shakti Steel Works on probation [G2][G3].\n\nSupporting details:\n*   Shakti Steel Works, the steel supplier, was put on probation by Ganga Roadways Pvt Ltd on 20 October 2025, following an incident where a guard rail supplied by the company was found to lack a safety certificate [C2][G3][G13].\n*   Shakti Steel Works supplies structural steel and guard rails to Ganga Roadways Pvt Ltd [C4][G17].\n*   The graph relationships indicate that Vikram Singh leads Ganga Roadways Pvt Ltd [G2].",
+    "grounded": true,
+    "citations": [
+      "G2",
+      "G3",
+      "C2",
+      "G13",
+      "C4",
+      "G17"
+    ],
+    "found_by": [
+      "vector+graph",
+      "vector+graph",
+      "vector+graph",
+      "vector+graph"
+    ],
+    "facts": [
+      "Sunita Yadav -[LEADS]-> Ganga Infra Holdings",
+      "Vikram Singh -[LEADS]-> Ganga Roadways Pvt Ltd",
+      "Ganga Roadways Pvt Ltd -[PARTICIPATED_IN]-> Ganga Roadways Pvt Ltd placed Shakti Steel Works on probation from 20 October 2025.",
+      "Anjali Mehra -[LEADS]-> Ganga Infra Holdings",
+      "Rohit Verma -[LEADS]-> Ganga Infra Holdings"
+    ],
+    "aggregates": [],
+    "seeded": [
+      "Lucknow",
+      "Ganga Roadways Pvt Ltd",
+      "Shakti Steel Works",
+      "Sunita Yadav",
+      "Lucknow–Sitapur Highway Upgrade"
+    ],
+    "filters": {},
+    "time": null,
+    "timings_ms": {
+      "embed_query": 16.9,
+      "query_analysis": 4.5,
+      "vector_search": 4.9,
+      "check_filters": 0.4,
+      "vector_seeds": 2.4,
+      "graph_search": 18.2,
+      "rank_facts": 124.4,
+      "bridge_fetch": 1.8,
+      "entity_mentions": 5.5,
+      "rerank": 226.2,
+      "total": 10307.2,
+      "generate": 9905.3
+    }
+  },
+  {
+    "question": "Which vendor supplies the most Ganga subsidiaries?",
+    "mode": "vector",
+    "answer": "Brightline Logistics supplies the most Ganga subsidiaries, supplying both Ganga Roadways Pvt Ltd and Ganga Water Systems Ltd [C1].\n\n*   **Brightline Logistics** supplies to Ganga Roadways Pvt Ltd and Ganga Water Systems Ltd [C1].\n*   Other vendors supply only one subsidiary:\n    *   Shakti Steel Works supplies to Ganga Roadways Pvt Ltd [C1].\n    *   NovaGrid Electronics supplies to Ganga Smart Power Ltd [C1].\n    *   DataSecure Cloud Pvt Ltd supplies to Ganga Smart Power Ltd [C1].\n    *   AquaPure Filters supplies to Ganga Water Systems Ltd [C1].",
+    "grounded": true,
+    "citations": [
+      "C1"
+    ],
+    "found_by": [
+      "vector",
+      "vector",
+      "vector",
+      "vector"
+    ],
+    "facts": [],
+    "aggregates": [],
+    "seeded": [],
+    "filters": {},
+    "time": null,
+    "timings_ms": {
+      "embed_query": 19.5,
+      "vector_search": 2.9,
+      "rank_facts": 0.1,
+      "bridge_fetch": 0.0,
+      "rerank": 222.7,
+      "total": 5438.3,
+      "generate": 5191.5
+    }
+  },
+  {
+    "question": "Which vendor supplies the most Ganga subsidiaries?",
+    "mode": "hybrid",
+    "answer": "Brightline Logistics supplies the most Ganga subsidiaries, supplying both Ganga Roadways Pvt Ltd and Ganga Water Systems Ltd [C1].\n\n*   Brightline Logistics supplies Ganga Roadways Pvt Ltd [C1][G3].\n*   Brightline Logistics also supplies Ganga Water Systems Ltd [C1][G4].",
+    "grounded": true,
+    "citations": [
+      "C1",
+      "G3",
+      "G4"
+    ],
+    "found_by": [
+      "vector+graph",
+      "vector+graph",
+      "vector",
+      "vector"
+    ],
+    "facts": [
+      "AquaPure Filters -[SUPPLIES]-> Ganga Water Systems Ltd",
+      "NovaGrid Electronics -[SUPPLIES]-> Ganga Smart Power Ltd",
+      "Brightline Logistics -[SUPPLIES]-> Ganga Roadways Pvt Ltd",
+      "Brightline Logistics -[SUPPLIES]-> Ganga Water Systems Ltd",
+      "DataSecure Cloud Pvt Ltd -[SUPPLIES]-> Ganga Smart Power Ltd"
+    ],
+    "aggregates": [
+      [
+        "AquaPure Filters",
+        2
+      ],
+      [
+        "Brightline Logistics",
+        2
+      ],
+      [
+        "Shakti Steel Works",
+        2
+      ],
+      [
+        "DataSecure Cloud Pvt Ltd",
+        1
+      ]
+    ],
+    "seeded": [],
+    "filters": {},
+    "time": null,
+    "timings_ms": {
+      "embed_query": 19.2,
+      "vector_search": 4.7,
+      "query_analysis": 11.6,
+      "check_filters": 0.2,
+      "graph_search": 2.3,
+      "rank_facts": 42.1,
+      "bridge_fetch": 1.7,
+      "entity_mentions": 0.1,
+      "rerank": 185.2,
+      "total": 7751.0,
+      "generate": 7487.6
+    }
+  },
+  {
+    "question": "गंगा स्मार्ट पावर के विक्रेताओं पर कौन सी धारा लागू होती है?",
+    "mode": "hybrid",
+    "answer": "गंगा स्मार्ट पावर के विक्रेताओं पर धारा 7.2 — ग्राहक डेटा निवास (Customer Data Residency) लागू होती है [C2][G11]।\n\nइस संबंध में विवरण निम्नलिखित हैं:\n*   धारा 7.2 उन सभी विक्रेताओं और उनके उप-ठेकेदारों पर लागू होती है जो गंगा की किसी सहायक कंपनी की ओर से ग्राहक डेटा को स्टोर या प्रोसेस करते हैं [C1]।\n*   यह धारा DataSecure Cloud Pvt Ltd और NovaGrid Electronics दोनों को प्रभावित करती है, क्योंकि ये दोनों गंगा स्मार्ट पावर लिमिटेड से जुड़े हैं [C2][G5][G11]।\n*   DataSecure Cloud Pvt Ltd, गंगा स्मार्ट पावर लिमिटेड के लिए मीटर और ग्राहक डेटा होस्ट करता है, और NovaGrid Electronics मीटर रीडिंग एकत्र करता है [C1][G4][G10]।\n*   इन दोनों विक्रेताओं को 31 जनवरी 2026 तक एक माइग्रेशन प्लान जमा करना आवश्यक है [C1]।",
+    "grounded": true,
+    "citations": [
+      "C2",
+      "G11",
+      "C1",
+      "G5",
+      "G4",
+      "G10"
+    ],
+    "found_by": [
+      "vector+graph",
+      "vector+graph",
+      "vector+graph",
+      "vector"
+    ],
+    "facts": [
+      "Clause 7.2 — Customer Data Residency -[IMPACTS]-> DataSecure Cloud Pvt Ltd",
+      "Ganga Smart Power Ltd -[PARTICIPATED_IN]-> Kanpur Smart Meter Programme",
+      "Ganga Smart Power Ltd -[USES]-> DataSecure Cloud Pvt Ltd",
+      "DataSecure Cloud Pvt Ltd -[WORKS_FOR]-> Ganga Smart Power Ltd",
+      "DataSecure Cloud Pvt Ltd -[RELATED_TO]-> Ganga Smart Power Ltd"
+    ],
+    "aggregates": [],
+    "seeded": [],
+    "filters": {},
+    "time": null,
+    "timings_ms": {
+      "embed_query": 18.2,
+      "vector_search": 4.1,
+      "query_analysis": 8.1,
+      "check_filters": 0.2,
+      "graph_search": 4.8,
+      "rank_facts": 94.6,
+      "bridge_fetch": 1.6,
+      "entity_mentions": 13.9,
+      "rerank": 186.2,
+      "total": 8830.5,
+      "generate": 8501.8
+    }
+  },
+  {
+    "question": "In the compliance bulletin, what happened to Shakti Steel Works in October 2025?",
+    "mode": "hybrid",
+    "answer": "Shakti Steel Works was placed on probation by Ganga Roadways Pvt Ltd starting October 20, 2025 [C1][G1].\n\nThe events leading to this included:\n*   On October 14, 2025, two workers were injured on the Lucknow-Sitapur Highway Upgrade while installing a guard rail supplied by Shakti Steel Works [C1][G2].\n*   The consignment involved in the incident did not have a safety certificate [C1][G3].\n*   Following the incident, Ganga Roadways Pvt Ltd placed Shakti Steel Works on probation from October 20, 2025 [C1][G1].",
+    "grounded": true,
+    "citations": [
+      "C1",
+      "G1",
+      "G2",
+      "G3"
+    ],
+    "found_by": [
+      "vector+graph",
+      "vector+graph"
+    ],
+    "facts": [
+      "Ganga Roadways Pvt Ltd -[PARTICIPATED_IN]-> Ganga Roadways Pvt Ltd placed Shakti Steel Works on probation from 20 October 2025.",
+      "Incident record -[OCCURRED_AT]-> Lucknow–Sitapur Highway Upgrade",
+      "Shakti Steel Works -[IMPACTS]-> Clause 9.1 — Safety Certification of Supplied Materials",
+      "Clause 9.1 — Safety Certification of Supplied Materials -[IMPACTS]-> Shakti Steel Works",
+      "Shakti Steel Works -[SUPPLIES]-> Ganga Roadways Pvt Ltd"
+    ],
+    "aggregates": [],
+    "seeded": [],
+    "filters": {
+      "source": "vendor_compliance_bulletin_q3_2025.pdf"
+    },
+    "time": "October 2025",
+    "timings_ms": {
+      "embed_query": 22.7,
+      "vector_search": 7.3,
+      "query_analysis": 7.9,
+      "check_filters": 2.5,
+      "graph_search": 49.8,
+      "vector_search_filtered": 2.2,
+      "rank_facts": 63.0,
+      "bridge_fetch": 1.6,
+      "entity_mentions": 3.6,
+      "rerank": 71.0,
+      "total": 10653.6,
+      "generate": 10428.5
+    }
+  },
+  {
+    "question": "What is the capital of France?",
+    "mode": "hybrid",
+    "answer": "I could not find information about this in the knowledge base.",
+    "grounded": false,
+    "citations": [],
+    "found_by": [
+      "vector",
+      "vector",
+      "vector",
+      "vector"
+    ],
+    "facts": [],
+    "aggregates": [],
+    "seeded": [],
+    "filters": {},
+    "time": null,
+    "timings_ms": {
+      "embed_query": 16.7,
+      "vector_search": 3.6,
+      "query_analysis": 4.2,
+      "check_filters": 0.1,
+      "graph_search": 0.0,
+      "rank_facts": 0.0,
+      "bridge_fetch": 0.0,
+      "entity_mentions": 0.0,
+      "rerank": 197.6,
+      "total": 218.9
+    }
+  }
+]

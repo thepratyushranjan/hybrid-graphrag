@@ -197,8 +197,12 @@ class QueryAnalyzer:
             for hit in hits:
                 if key in {_name_key(n, hit["type"]) for n in [hit["name"], *hit["aliases"]]}:
                     return hit
-        if hits:
+        # No exact match. A partial name that fits several entities ("Ganga" -> 4 "Ganga ..." companies) is
+        # ambiguous: resolving it to one of them would silently restrict the graph search to the wrong node.
+        if len(hits) == 1:
             return hits[0]
+        if len(hits) > 1:
+            return None
         partial = self.graph.search_entities(" OR ".join(_escape(w) for w in words), limit=1)
         # partial matches must cover most of the name, else "Ganga Roadways" would resolve to "Ganga Smart Power"
         if partial:

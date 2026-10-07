@@ -51,7 +51,8 @@ def retriever(
     settings: Settings, embedder: HuggingFaceEmbedder, stores: tuple[QdrantStore, Neo4jStore], tmp_path: Path
 ) -> HybridRetriever:
     vectors, graph = stores
-    test_settings = settings.model_copy(update={"llm_cache_dir": str(tmp_path), "rerank_enabled": False})
+    # max_facts high: real documents may share entities with the test text and fill the default top 20
+    test_settings = settings.model_copy(update={"llm_cache_dir": str(tmp_path), "rerank_enabled": False, "max_facts": 500})
     llm = FakeLLM(RESULT, by_schema=ANALYSIS)
     IngestionPipeline(test_settings, embedder, vectors, graph, llm=llm).ingest(SOURCE, TEXT.encode())  # type: ignore[arg-type]
     analyzer = QueryAnalyzer(test_settings, graph, llm, JsonCache(tmp_path))  # type: ignore[arg-type]
@@ -65,9 +66,12 @@ def test_modes_differ(retriever: HybridRetriever) -> None:
     hybrid = asyncio.run(retriever.retrieve(q, "hybrid"))
 
     assert vector.facts == [] and vector.chunks and vector.chunks[0].found_by == ["vector"]
-    impacts = ("concept:clause_7_2", "IMPACTS", "org:datasecure_cloud")
+    # "Clause 7.2" may merge into an existing clause node from real documents (cross-document entity
+    # resolution), so check the behaviour rather than a fixed node id
+    clause = graph.analysis.entities[0].entity_id
+    assert clause is not None and clause.startswith("concept:clause_7_2")
+    impacts = (clause, "IMPACTS", "org:datasecure_cloud")
     assert impacts in {f.key for f in graph.facts}
-    assert graph.analysis.entities[0].entity_id == "concept:clause_7_2"
     assert graph.chunks and all(c.found_by == ["graph"] for c in graph.chunks)  # graph-to-vector bridge
     assert impacts in {f.key for f in hybrid.facts}
     assert hybrid.chunks[0].found_by == ["vector", "graph"]

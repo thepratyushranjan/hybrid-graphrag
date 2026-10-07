@@ -113,3 +113,16 @@ def test_entity_ids_and_predicates() -> None:
 
 def test_extraction_schema_round_trip() -> None:
     assert ExtractionResult.model_validate(RESULT).triples[0].predicate == "IMPACTS"
+
+
+def test_reversed_facts_are_oriented_by_entity_type() -> None:
+    from graphrag.graph.extractor import orient
+    from graphrag.models import GraphEntity
+
+    person = GraphEntity(id="person:v", name="Vikram Singh", type="Person")
+    org = GraphEntity(id="org:g", name="Ganga Roadways", type="Organization")
+    city = GraphEntity(id="loc:l", name="Lucknow", type="Location")
+    assert orient("LEADS", org, person) == (person, org)
+    assert orient("LEADS", person, org) == (person, org)
+    assert orient("LOCATED_IN", city, org) == (org, city)
+    assert orient("SUPPLIES", org, person) == (org, person)  # no type rule for SUPPLIES

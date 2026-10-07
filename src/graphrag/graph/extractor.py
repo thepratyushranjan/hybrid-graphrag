@@ -94,6 +94,21 @@ def entity_id(name: str, entity_type: EntityType) -> str:
     return f"{_ID_PREFIX[entity_type]}:{_name_key(name, entity_type)}"
 
 
+# Predicates whose subject must be a person / whose object must be a place. LLMs sometimes flip them
+# ("Ganga Roadways LEADS Vikram Singh"); the entity types tell us which way round the fact must be.
+_PERSON_SUBJECT = {"LEADS", "WORKS_FOR", "HAS_SKILL", "STUDIED_AT"}
+_LOCATION_OBJECT = {"LOCATED_IN", "OCCURRED_AT"}
+
+
+def orient(predicate: str, subject: GraphEntity, obj: GraphEntity) -> tuple[GraphEntity, GraphEntity]:
+    """Swap subject and object when the entity types show the LLM wrote the fact backwards."""
+    if predicate in _PERSON_SUBJECT and subject.type != "Person" and obj.type == "Person":
+        return obj, subject
+    if predicate in _LOCATION_OBJECT and obj.type != "Location" and subject.type == "Location":
+        return obj, subject
+    return subject, obj
+
+
 def normalize_predicate(raw: str) -> tuple[str, str | None]:
     """Map the LLM's predicate onto the whitelist. Returns (predicate, original phrase if it was remapped)."""
     candidate = re.sub(r"[^A-Z0-9]+", "_", raw.upper()).strip("_")
@@ -223,6 +238,10 @@ class TripleExtractor:
                 logger.debug("dropped triple %s -[%s]-> %s (evidence: %r)", t.subject, t.predicate, t.object, evidence)
                 continue
             predicate, original = normalize_predicate(t.predicate)
+            subject, obj = orient(predicate, subject, obj)
+            if _name_key(subject.name, subject.type) == _name_key(obj.name, obj.type):
+                dropped += 1  # same thing under two types ("Ganga Roadways PARTICIPATED_IN Ganga Roadways")
+                continue
             relations.append(
                 GraphRelation(
                     subject_id=subject.id,

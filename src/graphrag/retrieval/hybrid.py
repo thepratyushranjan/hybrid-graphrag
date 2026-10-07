@@ -122,7 +122,8 @@ class HybridRetriever:
 
         # Step 3: graph-to-vector bridge - fetch the chunks that support the graph facts
         all_facts = await timed(
-            "rank_facts", lambda: rank_facts(raw_facts, self._fact_scorer(question, question_vector, reranker))
+            "rank_facts",
+            lambda: rank_facts(raw_facts, self._fact_scorer(question, question_vector, reranker), analysis.predicate),
         )
         graph_chunk_ids = graph_chunk_order(all_facts)[: self.settings.vector_candidates]
         graph_chunks = await timed("bridge_fetch", lambda: self.vector_store.get_chunks(graph_chunk_ids))
