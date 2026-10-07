@@ -1,4 +1,5 @@
-"""Ingest every PDF / Markdown / text file in data/samples into Qdrant + Neo4j (run with `make seed`)."""
+"""Ingest every PDF / Markdown / text file in data/samples into Qdrant + Neo4j (run with `make seed`).
+Idempotent: running it again doesn't duplicate anything."""
 
 import sys
 from pathlib import Path
@@ -21,8 +22,12 @@ def main() -> int:
 
     settings = get_settings()
     vectors, graph = QdrantStore(settings), Neo4jStore(settings)
+    vectors.ensure_collection()
     graph.ensure_schema()
     pipeline = IngestionPipeline(settings, build_embedder(settings), vectors, graph_store=graph)
+    if pipeline.llm_error:
+        print(f"WARNING: LLM unavailable ({pipeline.llm_error}). Loading vectors only; fix .env and run "
+              "`make seed` again to build the knowledge graph.")
     for path in files:
         print(f"Ingesting {path.name} ...", flush=True)
         r = pipeline.ingest_path(path)

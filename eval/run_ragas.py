@@ -4,6 +4,10 @@ For every question in eval/testset.json and every mode, the full /query pipeline
   - Faithfulness: are the answer's claims supported by the retrieved context?
   - Answer Relevancy: does the answer address the question? (needs embeddings: our multilingual e5)
   - Context Precision (with reference): are the useful contexts ranked first?
+plus two reference-based metrics, because the three above don't check that the answer is *right* (an answer saying
+"the evidence doesn't state it" can be perfectly faithful and relevant):
+  - Factual Correctness (F1): do the answer's claims match the reference answer's?
+  - Context Recall: does the retrieved context contain what the reference answer needs?
 The judge is the configured LLM (LLM_PROVIDER / LLM_MODEL) through its OpenAI-compatible endpoint.
 
     make eval                             # all questions, all three modes
@@ -25,7 +29,13 @@ from typing import Any
 from openai import AsyncOpenAI
 from ragas.embeddings import HuggingFaceEmbeddings
 from ragas.llms import llm_factory
-from ragas.metrics.collections import AnswerRelevancy, ContextPrecisionWithReference, Faithfulness
+from ragas.metrics.collections import (
+    AnswerRelevancy,
+    ContextPrecisionWithReference,
+    ContextRecall,
+    FactualCorrectness,
+    Faithfulness,
+)
 
 from graphrag.config import get_settings
 from graphrag.embeddings.embedder import build_embedder
@@ -38,7 +48,11 @@ from graphrag.vector_store.qdrant_store import QdrantStore
 
 EVAL_DIR = Path(__file__).resolve().parent
 MODES = ("vector", "graph", "hybrid")
-METRICS = ("faithfulness", "answer_relevancy", "context_precision")
+METRICS = ("faithfulness", "answer_relevancy", "context_precision", "factual_correctness", "context_recall")
+METRIC_LABELS = {
+    "faithfulness": "Faithfulness", "answer_relevancy": "Answer relevancy", "context_precision": "Context precision",
+    "factual_correctness": "Factual correctness", "context_recall": "Context recall",
+}
 MAX_FACT_CONTEXTS = 8  # graph facts given to the judge as contexts (each costs one context-precision call)
 
 logging.basicConfig(level=logging.WARNING)
@@ -73,28 +87,27 @@ async def score(metric: Any, **kwargs: Any) -> float | None:
 
 def summarise(rows: list[dict[str, Any]], modes: list[str]) -> str:
     def mean(mode: str, metric: str) -> str:
-        values = [r[metric] for r in rows if r["mode"] == mode and r[metric] is not None]
+        values = [r[metric] for r in rows if r["mode"] == mode and r.get(metric) is not None]
         return f"{statistics.mean(values):.3f}" if values else "—"
 
     lines = [
-        "| Mode | Faithfulness | Answer relevancy | Context precision | Answered |",
-        "|---|---|---|---|---|",
+        "| Mode | " + " | ".join(METRIC_LABELS[m] for m in METRICS) + " | Answered |",
+        "|---|" + "---|" * (len(METRICS) + 1),
     ]
     for mode in modes:
         answered = sum(r["grounded"] for r in rows if r["mode"] == mode)
         total = sum(r["mode"] == mode for r in rows)
-        lines.append(f"| {mode} | {mean(mode, 'faithfulness')} | {mean(mode, 'answer_relevancy')} | "
-                     f"{mean(mode, 'context_precision')} | {answered}/{total} |")
+        lines.append(f"| {mode} | " + " | ".join(mean(mode, m) for m in METRICS) + f" | {answered}/{total} |")
 
-    lines += ["", "| Question | Lang | Type | " + " | ".join(f"{m} F / AR / CP" for m in modes) + " |",
-              "|---|---|---|" + "---|" * len(modes)]
+    def cell(r: dict[str, Any] | None, metric: str) -> str:
+        return "—" if r is None or r.get(metric) is None else f"{r[metric]:.2f}"
+
+    lines += ["", "Per question — factual correctness / context recall:", "",
+              "| Question | Lang | Type | " + " | ".join(modes) + " |", "|---|---|---|" + "---|" * len(modes)]
     for qid in dict.fromkeys(r["id"] for r in rows):
         q_rows = {r["mode"]: r for r in rows if r["id"] == qid}
         first = next(iter(q_rows.values()))
-        cells = []
-        for mode in modes:
-            r = q_rows.get(mode)
-            cells.append(" / ".join("—" if r is None or r[m] is None else f"{r[m]:.2f}" for m in METRICS))
+        cells = [f"{cell(q_rows.get(m), 'factual_correctness')} / {cell(q_rows.get(m), 'context_recall')}" for m in modes]
         lines.append(f"| {qid}: {first['question']} | {first['language']} | {first['type']} | {' | '.join(cells)} |")
     return "\n".join(lines)
 
@@ -124,6 +137,8 @@ async def main() -> None:
     faithfulness = Faithfulness(llm=judge)
     relevancy = AnswerRelevancy(llm=judge, embeddings=ragas_embeddings)
     precision = ContextPrecisionWithReference(llm=judge)
+    correctness = FactualCorrectness(llm=judge)
+    recall = ContextRecall(llm=judge)
 
     print(f"Ragas: {len(questions)} questions x {len(modes)} modes, judge {settings.llm_provider}/{settings.llm_model}")
     rows: list[dict[str, Any]] = []
@@ -149,9 +164,15 @@ async def main() -> None:
                 await score(precision, user_input=q["question"], reference=q["reference"], retrieved_contexts=contexts)
                 if contexts else 0.0
             )
+            row["factual_correctness"] = await score(correctness, response=answer, reference=q["reference"])
+            row["context_recall"] = (
+                await score(recall, user_input=q["question"], retrieved_contexts=contexts, reference=q["reference"])
+                if contexts else 0.0
+            )
             rows.append(row)
             print(f"  {q['id']} {mode:6} F={row['faithfulness']} AR={row['answer_relevancy']} "
-                  f"CP={row['context_precision']} ({time.perf_counter() - t0:.0f}s)", flush=True)
+                  f"CP={row['context_precision']} FC={row['factual_correctness']} CR={row['context_recall']} "
+                  f"({time.perf_counter() - t0:.0f}s)", flush=True)
 
     stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     out = EVAL_DIR / "results"
