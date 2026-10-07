@@ -19,3 +19,5 @@ data/
 tests/
 eval/
 *.md
+requirements.in
+Makefile

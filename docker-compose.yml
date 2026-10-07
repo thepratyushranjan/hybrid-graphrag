@@ -1,3 +1,11 @@
+x-app-build: &app-build
+  context: .
+  args:
+    EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-huggingface}
+    EMBEDDING_MODEL: ${EMBEDDING_MODEL:-intfloat/multilingual-e5-small}
+    RERANKER_MODEL: ${RERANKER_MODEL:-cross-encoder/mmarco-mMiniLMv2-L12-H384-v1}
+    OCR_LANG_PACKS: ${OCR_LANG_PACKS:-eng hin}
+
 services:
   qdrant:
     image: qdrant/qdrant:v1.19.2
@@ -37,12 +45,15 @@ services:
     restart: unless-stopped
 
   api:
-    build: .
+    image: rag_graph-app
+    build: *app-build
     env_file: .env
     environment:
       QDRANT_URL: http://qdrant:6333
       NEO4J_URI: bolt://neo4j:7687
       OLLAMA_BASE_URL: http://host.docker.internal:11434
+    volumes:
+      - ./data:/app/data        # sample documents for `make seed`
     extra_hosts:
       - "host.docker.internal:host-gateway"   # lets the container reach Ollama on your machine (Linux)
     ports:
@@ -51,6 +62,25 @@ services:
       qdrant:
         condition: service_healthy
       neo4j:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+  ui:
+    image: rag_graph-app
+    build: *app-build
+    command: ["streamlit", "run", "ui/streamlit_app.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true", "--browser.gatherUsageStats=false"]
+    environment:
+      API_URL: http://api:8000
+    ports:
+      - "${UI_PORT:-8501}:8501"
+    depends_on:
+      api:
         condition: service_healthy
     restart: unless-stopped
 

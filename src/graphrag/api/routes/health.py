@@ -34,4 +34,7 @@ def health(
         "app": settings.app_name,
         "env": settings.app_env,
         "checks": checks,
+        "llm": {"provider": settings.llm_provider, "model": settings.llm_model},
+        "embedding": {"provider": settings.embedding_provider, "model": settings.embedding_model},
+        "warnings": settings.provider_warnings(),
     }
