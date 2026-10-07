@@ -13,6 +13,8 @@ answer from the combined evidence.
 - **LLM of your choice:** OpenAI, Google Gemini, or a free local model with Ollama — switchable in the UI
 - Runs entirely in **Docker**: Qdrant, Neo4j, a FastAPI backend and a Streamlit chat UI
 
+**📹 [Watch the demo video](https://drive.google.com/file/d/1pOXXcfG1gwwSWge_hQsNTBh6YWCwmKJn/view?usp=sharing)** to see it in action.
+
 ---
 
 ## How it works
