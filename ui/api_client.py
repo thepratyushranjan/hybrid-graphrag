@@ -42,5 +42,7 @@ class ApiClient:
     def ingest(self, filename: str, content: bytes, content_type: str) -> ApiResult:
         return self._request("POST", "/ingest", files={"file": (filename, content, content_type)})
 
-    def query(self, question: str, top_k: int, hops: int) -> ApiResult:
-        return self._request("POST", "/query", json={"question": question, "top_k": top_k, "hops": hops})
+    def query(self, question: str, top_k: int, hops: int, mode: str = "hybrid") -> ApiResult:
+        return self._request(
+            "POST", "/query", json={"question": question, "top_k": top_k, "hops": hops, "mode": mode}
+        )

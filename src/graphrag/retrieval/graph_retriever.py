@@ -22,6 +22,8 @@ _SCOPE = "($allowed IS NULL OR r.chunk_id IN $allowed)"
 _FACT = (
     "RETURN DISTINCT startNode(r).id AS subject_id, startNode(r).name AS subject, r.predicate AS predicate, "
     "endNode(r).id AS object_id, endNode(r).name AS object, r.confidence AS confidence, "
+    "startNode(r).type AS subject_type, endNode(r).type AS object_type, "
+    "COLLECT { MATCH (c:Chunk {id: r.chunk_id}) RETURN c.source } AS sources, "
     "r.chunk_id AS chunk_id, r.evidence AS evidence"
 )
 
@@ -65,7 +67,8 @@ AGGREGATION = (
     "RETURN x.id AS entity_id, x.name AS name, n AS count, "
     "[r IN rels | {subject_id: startNode(r).id, subject: startNode(r).name, predicate: r.predicate, "
     "object_id: endNode(r).id, object: endNode(r).name, confidence: r.confidence, chunk_id: r.chunk_id, "
-    "evidence: r.evidence}] AS facts"
+    "evidence: r.evidence, subject_type: startNode(r).type, object_type: endNode(r).type, "
+    "sources: COLLECT { MATCH (c:Chunk {id: r.chunk_id}) RETURN c.source }}] AS facts"
 )
 
 

@@ -25,6 +25,13 @@ class FakeLLM:
         self.by_schema = by_schema or {}
         self.calls = 0
 
+    answer = "Clause 7.2 impacts DataSecure Cloud [C1][G1]. It also impacts every bank in India [C9]."
+
+    def complete(self, system: str, user: str, max_tokens: int = 1500, temperature: float = 0.0) -> str:
+        self.calls += 1
+        self.last_prompt = user
+        return self.answer
+
     def complete_json(self, system: str, user: str, schema: type[BaseModel], max_tokens: int = 4096) -> BaseModel:
         self.calls += 1
         return schema.model_validate(self.by_schema.get(schema.__name__, self.result))

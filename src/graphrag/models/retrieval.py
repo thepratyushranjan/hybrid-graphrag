@@ -79,10 +79,13 @@ class GraphFact(BaseModel):
     predicate: str
     object_id: str
     object: str
+    subject_type: str | None = None  # Person / Organization / Location / Event / Concept
+    object_type: str | None = None
     hops: int  # distance from a query entity (1 = directly connected)
     confidence: float
     relevance: float | None = None  # 0-1 relevance to the question (cross-encoder, or embedding cosine)
     chunk_ids: list[str]  # supporting chunks (evidence)
+    sources: list[str] = Field(default_factory=list)  # files those chunks come from
     evidence: str
     template: str  # which Cypher template found it
 
@@ -92,6 +95,14 @@ class GraphFact(BaseModel):
 
     def as_text(self) -> str:
         return f"{self.subject} -[{self.predicate}]-> {self.object}"
+
+    def as_typed_text(self) -> str:
+        """Prompt form: "(Person: Vikram Singh) -[LEADS]-> (Organization: Ganga Roadways)"."""
+
+        def node(type_: str | None, name: str) -> str:
+            return f"({type_}: {name})" if type_ else f"({name})"
+
+        return f"{node(self.subject_type, self.subject)} -[{self.predicate}]-> {node(self.object_type, self.object)}"
 
     def as_sentence(self) -> str:
         """Natural-language form used for relevance scoring: "Vikram Singh leads Ganga Roadways"."""

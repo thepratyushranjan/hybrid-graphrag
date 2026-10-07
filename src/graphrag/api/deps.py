@@ -1,6 +1,7 @@
 from fastapi import HTTPException, Request, status
 
 from graphrag.graph.neo4j_store import Neo4jStore
+from graphrag.generation.synthesizer import AnswerGenerator
 from graphrag.ingestion.pipeline import IngestionPipeline
 from graphrag.retrieval.hybrid import HybridRetriever
 from graphrag.vector_store.qdrant_store import QdrantStore
@@ -32,3 +33,13 @@ def get_retriever(request: Request) -> HybridRetriever:
             detail=f"Retrieval unavailable: {request.app.state.pipeline_error}",
         )
     return retriever
+
+
+def get_generator(request: Request) -> AnswerGenerator:
+    generator: AnswerGenerator | None = request.app.state.generator
+    if generator is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Query unavailable: {request.app.state.pipeline_error}",
+        )
+    return generator

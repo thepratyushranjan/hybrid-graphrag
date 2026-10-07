@@ -14,6 +14,7 @@ def dedupe_facts(facts: list[GraphFact]) -> list[GraphFact]:
         if fact.key in merged:
             kept = merged[fact.key]
             kept.chunk_ids = list(dict.fromkeys([*kept.chunk_ids, *fact.chunk_ids]))
+            kept.sources = list(dict.fromkeys([*kept.sources, *fact.sources]))
             kept.hops = min(kept.hops, fact.hops)
             kept.confidence = max(kept.confidence, fact.confidence)
         else:

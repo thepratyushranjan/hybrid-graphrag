@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     llm_provider: Literal["openai", "gemini", "ollama"] = "openai"
     llm_model: str = "gpt-4o-mini"
     llm_reasoning_effort: str | None = None  # "none" disables thinking on Ollama/Gemini thinking models
+    # for the final answer only; multi-step questions need a little thinking ("low") on local models
+    answer_reasoning_effort: str | None = None
 
     # Embeddings
     embedding_provider: Literal["huggingface", "openai"] = "huggingface"
@@ -93,6 +95,12 @@ class Settings(BaseSettings):
     rerank_enabled: bool = True
     rerank_candidates: int = Field(default=20, ge=1)
     context_token_budget: int = Field(default=3000, ge=200)
+
+    # Generation
+    # Below this relevance (0-1, cross-encoder) for every chunk and fact, the LLM is skipped and the answer is
+    # "not found in the knowledge base" instead of a guess.
+    min_evidence_score: float = Field(default=0.05, ge=0, le=1)
+    answer_max_tokens: int = Field(default=1500, ge=100)
 
     def provider_warnings(self) -> list[str]:
         """Missing keys/models don't stop the server; they are logged and shown in /health."""

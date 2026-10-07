@@ -9,6 +9,7 @@ import pytest
 from graphrag.config import Settings
 from graphrag.embeddings.embedder import HuggingFaceEmbedder
 from graphrag.graph.neo4j_store import Neo4jStore
+from graphrag.generation.synthesizer import AnswerGenerator
 from graphrag.ingestion.pipeline import IngestionPipeline
 from graphrag.llm.cache import JsonCache
 from graphrag.retrieval.hybrid import HybridRetriever
@@ -121,3 +122,21 @@ def test_time_filter_and_safety_net(
     assert nothing.analysis.time_range is None
     assert nothing.analysis.dropped_filters and "1999" in nothing.analysis.dropped_filters[0]
     assert nothing.chunks
+
+
+def test_query_answer_is_grounded_and_validated(retriever: HybridRetriever) -> None:
+    llm = retriever.analyzer.llm
+    response = asyncio.run(AnswerGenerator(retriever.settings, retriever, llm).answer("What does Clause 7.2 impact?"))  # type: ignore[arg-type]
+    assert response.grounded
+    assert "[C1]" in llm.last_prompt and "[G1]" in llm.last_prompt  # type: ignore[union-attr]
+    assert response.invalid_citations == ["C9"] and "[C9]" not in response.answer
+    assert [c.cite_id for c in response.citations] == ["C1", "G1"]
+    assert response.uncited_sentences == ["It also impacts every bank in India."]
+
+
+def test_no_evidence_skips_the_llm(retriever: HybridRetriever) -> None:
+    llm = FakeLLM(RESULT, by_schema={"QueryAnalysisLLM": {"entities": [], "query_type": "lookup"}})
+    retriever.analyzer.llm = llm  # type: ignore[assignment]
+    response = asyncio.run(AnswerGenerator(retriever.settings, retriever, llm).answer("anything", mode="graph"))  # type: ignore[arg-type]
+    assert not response.grounded and "could not find" in response.answer
+    assert not hasattr(llm, "last_prompt")  # complete() was never called

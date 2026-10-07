@@ -1,3 +1,4 @@
+from graphrag.models.answer import Citation, CitedChunk, CitedFact, QueryResponse
 from graphrag.models.documents import Chunk, DocType, ExtractionMethod, IngestResult, LoadedPage, RetrievedChunk
 from graphrag.models.retrieval import (
     Aggregate,
@@ -24,6 +25,7 @@ from graphrag.models.graph import (
 )
 
 __all__ = [
+    "Citation", "CitedChunk", "CitedFact", "QueryResponse",
     "Aggregate", "GraphFact", "QueryAnalysis", "QueryAnalysisLLM", "QueryEntity", "RankedChunk", "RetrievalMode",
     "RetrievalResult", "TimeFilter",
     "ENTITY_TYPES", "PREDICATES", "Chunk", "ChunkGraph", "DocType", "EntityType", "ExtractedEntity",

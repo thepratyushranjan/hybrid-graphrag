@@ -43,6 +43,9 @@ class LLMClient:
         self.extra: dict[str, str] = (
             {"reasoning_effort": settings.llm_reasoning_effort} if settings.llm_reasoning_effort else {}
         )
+        self.answer_extra: dict[str, str] = (
+            {"reasoning_effort": settings.answer_reasoning_effort} if settings.answer_reasoning_effort else self.extra
+        )
         if self.provider == "openai":
             api_key, base_url = settings.openai_api_key, None
         elif self.provider == "gemini":
@@ -107,3 +110,17 @@ class LLMClient:
                     {"role": "user", "content": f"That JSON was invalid: {exc.errors()[:3]}. Reply with corrected JSON only."},
                 ]
         raise LLMError(f"{self.provider}/{self.model} returned invalid JSON twice: {last_error}")
+
+    def complete(self, system: str, user: str, max_tokens: int = 1500, temperature: float = 0.0) -> str:
+        """Plain-text chat completion (used for the grounded answer)."""
+        try:
+            resp = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+                temperature=temperature,
+                max_tokens=max_tokens,
+                **self.answer_extra,  # type: ignore[arg-type]
+            )
+        except OpenAIError as exc:
+            raise LLMError(f"{self.provider}/{self.model} request failed: {exc}") from exc
+        return (resp.choices[0].message.content or "").strip()
