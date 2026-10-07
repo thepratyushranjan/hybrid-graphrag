@@ -61,3 +61,12 @@ def test_database_down_is_503(client: TestClient) -> None:
 def test_query_request_validation(client: TestClient) -> None:
     assert client.post("/query", json={"question": "x"}).status_code == 422  # too short
     assert client.post("/query", json={"question": "Who?", "mode": "magic"}).status_code == 422
+
+
+def test_documents_are_served_safely(client: TestClient) -> None:
+    pdf = client.get("/documents/vendor_compliance_bulletin_q3_2025.pdf")
+    assert pdf.status_code == 200 and pdf.headers["content-type"] == "application/pdf"
+    assert pdf.content.startswith(b"%PDF")
+    assert client.get("/documents/..%2F..%2F.env").status_code == 404  # no path traversal
+    assert client.get("/documents/secrets.env").status_code == 404  # only document types
+    assert client.get("/documents/never_uploaded.pdf").status_code == 404

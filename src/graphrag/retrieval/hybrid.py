@@ -56,8 +56,10 @@ class HybridRetriever:
         top_k: int | None = None,
         hops: int | None = None,
         filters: QueryFilters | None = None,
+        rerank: bool | None = None,
     ) -> RetrievalResult:
         top_k = top_k or self.settings.top_k
+        reranker = self.reranker if rerank is not False else None  # False = caller switched it off
         hops = hops or self.settings.graph_hops
         timings: dict[str, float] = {}
 
@@ -117,7 +119,9 @@ class HybridRetriever:
             vector_hits = []
 
         # Step 3: graph-to-vector bridge - fetch the chunks that support the graph facts
-        all_facts = await timed("rank_facts", lambda: rank_facts(raw_facts, self._fact_scorer(question, question_vector)))
+        all_facts = await timed(
+            "rank_facts", lambda: rank_facts(raw_facts, self._fact_scorer(question, question_vector, reranker))
+        )
         graph_chunk_ids = graph_chunk_order(all_facts)[: self.settings.vector_candidates]
         graph_chunks = await timed("bridge_fetch", lambda: self.vector_store.get_chunks(graph_chunk_ids))
 
@@ -132,8 +136,8 @@ class HybridRetriever:
             vector_hits, graph_chunks, mentions, self.settings.rrf_k, self.settings.entity_mention_boost
         )
         candidates = fused[: self.settings.rerank_candidates]
-        if self.reranker is not None and candidates:
-            candidates = await timed("rerank", lambda: self.reranker.rerank(question, candidates))  # type: ignore[union-attr]
+        if reranker is not None and candidates:
+            candidates = await timed("rerank", lambda: reranker.rerank(question, candidates))
         facts = all_facts[: self.settings.max_facts]
         chunks, facts, used = fit_budget(
             candidates[:top_k], facts, self.settings.context_token_budget, self.embedder.count_tokens
@@ -190,10 +194,11 @@ class HybridRetriever:
         analysis.dropped_filters.append(f"filters: {analysis.filters} (no chunks match)")
         analysis.filters = {}
 
-    def _fact_scorer(self, question: str, question_vector: list[float]) -> Callable[[list[str]], list[float]]:
-        """Cross-encoder relevance when the reranker is loaded, else embedding cosine."""
-        if self.reranker is not None:
-            reranker = self.reranker
+    def _fact_scorer(
+        self, question: str, question_vector: list[float], reranker: Reranker | None
+    ) -> Callable[[list[str]], list[float]]:
+        """Cross-encoder relevance when the reranker is on, else embedding cosine."""
+        if reranker is not None:
             return lambda texts: reranker.relevance(question, texts)
 
         def cosine(texts: list[str]) -> list[float]:

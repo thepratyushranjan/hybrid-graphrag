@@ -27,7 +27,7 @@ lock:           ## regenerate the fully pinned requirements.txt from requirement
 		--emit-index-url --no-header
 
 test: env       ## run the test suite inside the api container (needs `make up`)
-	docker compose run --rm --no-deps -v "$$PWD/tests":/app/tests api pytest -q tests
+	docker compose run --rm --no-deps -v "$$PWD/tests":/app/tests -v "$$PWD/ui":/app/ui api pytest -q tests
 
 seed:           ## ingest the sample documents in data/samples (needs `make up`)
 	docker compose exec api python scripts/seed.py

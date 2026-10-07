@@ -46,7 +46,12 @@ class ApiClient:
     def job(self, job_id: str) -> ApiResult:
         return self._request("GET", f"/ingest/{job_id}")
 
-    def query(self, question: str, top_k: int, hops: int, mode: str = "hybrid") -> ApiResult:
+    def query(self, question: str, top_k: int, hops: int, mode: str = "hybrid", rerank: bool = True) -> ApiResult:
         return self._request(
-            "POST", "/query", json={"question": question, "top_k": top_k, "hops": hops, "mode": mode}
+            "POST",
+            "/query",
+            json={"question": question, "top_k": top_k, "hops": hops, "mode": mode, "rerank": rerank},
         )
+
+    def stats(self) -> ApiResult:
+        return self._request("GET", "/stats")

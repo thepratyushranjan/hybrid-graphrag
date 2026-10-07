@@ -16,6 +16,7 @@ class RetrieveRequest(BaseModel):
     top_k: int | None = Field(default=None, ge=1, le=20)
     hops: int | None = Field(default=None, ge=1, le=2)
     filters: QueryFilters | None = Field(default=None, description="Explicit filters (never dropped)")
+    rerank: bool | None = Field(default=None, description="Cross-encoder reranking; null = server default")
 
 
 @router.post("/retrieve", response_model=RetrievalResult)
@@ -23,4 +24,4 @@ async def retrieve(
     req: RetrieveRequest, retriever: Annotated[HybridRetriever, Depends(get_retriever)]
 ) -> RetrievalResult:
     """Hybrid retrieval only (no answer generation). `mode` = vector | graph | hybrid, for comparing branches."""
-    return await retriever.retrieve(req.question, req.mode, req.top_k, req.hops, req.filters)
+    return await retriever.retrieve(req.question, req.mode, req.top_k, req.hops, req.filters, req.rerank)

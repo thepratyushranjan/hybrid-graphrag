@@ -17,3 +17,6 @@ venv/
 .vscode/
 .idea/
 .DS_Store
+
+# uploaded originals (kept so citations can link to them)
+data/uploads/

@@ -8,7 +8,7 @@ from neo4j.exceptions import AuthError, ServiceUnavailable, SessionExpired
 from qdrant_client.http.exceptions import ResponseHandlingException
 
 from graphrag.api.jobs import JobStore
-from graphrag.api.routes import health, ingest, query, retrieve, stats
+from graphrag.api.routes import documents, health, ingest, query, retrieve, stats
 from graphrag.config import get_settings
 from graphrag.embeddings.embedder import build_embedder
 from graphrag.graph.neo4j_store import Neo4jStore
@@ -88,3 +88,4 @@ app.include_router(ingest.router)
 app.include_router(retrieve.router)
 app.include_router(query.router)
 app.include_router(stats.router)
+app.include_router(documents.router)

@@ -15,4 +15,4 @@ async def query(
     req: RetrieveRequest, generator: Annotated[AnswerGenerator, Depends(get_generator)]
 ) -> QueryResponse:
     """Grounded answer with [C#] (text) and [G#] (graph) citations, validated against the evidence."""
-    return await generator.answer(req.question, req.mode, req.top_k, req.hops, req.filters)
+    return await generator.answer(req.question, req.mode, req.top_k, req.hops, req.filters, req.rerank)

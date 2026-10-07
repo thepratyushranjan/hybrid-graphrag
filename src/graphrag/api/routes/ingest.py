@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
@@ -6,6 +7,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from graphrag.api.deps import get_jobs, get_pipeline
 from graphrag.api.jobs import JobStore
+from graphrag.config import get_settings
 from graphrag.ingestion.loaders import SUPPORTED_TYPES, UnsupportedFileType, doc_type_for
 from graphrag.ingestion.pipeline import EmptyDocumentError, IngestionPipeline
 from graphrag.models import DocMetadata, IngestJob, IngestResult
@@ -36,6 +38,13 @@ def validate_upload(filename: str, data: bytes) -> None:
         raise _bad(f"{filename} looks like a binary file, not {doc_type} text")
 
 
+def store_original(filename: str, data: bytes) -> None:
+    """Keep the uploaded file so citations can link to it (GET /documents/{name})."""
+    folder = Path(get_settings().documents_dir)
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / Path(filename).name).write_bytes(data)
+
+
 def parse_metadata(raw: str | None) -> DocMetadata:
     if not raw:
         return {}
@@ -60,6 +69,7 @@ def ingest(
     data = file.file.read(MAX_UPLOAD_BYTES + 1)
     validate_upload(filename, data)
     meta = parse_metadata(metadata)
+    store_original(filename, data)
     if wait:
         response.status_code = status.HTTP_200_OK
         try:

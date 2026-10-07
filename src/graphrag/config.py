@@ -73,6 +73,9 @@ class Settings(BaseSettings):
     extraction_min_confidence: float = Field(default=0.5, ge=0, le=1)
     known_entities_limit: int = Field(default=200, ge=0)  # existing entity names shown to the LLM for reuse
     llm_cache_dir: str = "/app/.cache/llm"
+    # originals of uploaded files, served by GET /documents/{name} (sample docs are served from data/samples)
+    documents_dir: str = "/app/data/uploads"
+    samples_dir: str = "/app/data/samples"
     # (Document)-[:SIMILAR_TO {score}]->(Document) from Qdrant. Score = cosine between a document's
     # centroid and the best-matching chunk of another document. Threshold is embedding-model specific:
     # multilingual-e5 puts related docs at ~0.93 and unrelated ones at ~0.87.

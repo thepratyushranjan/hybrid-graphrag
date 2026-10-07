@@ -28,6 +28,7 @@ python-multipart==0.0.32
 
 # UI
 streamlit==1.65.0
+pyvis==0.3.2
 
 # Tests
 pytest==9.1.1

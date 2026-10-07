@@ -8,9 +8,11 @@ import time
 from graphrag.config import Settings
 from graphrag.generation.citation_validator import validate
 from graphrag.generation.prompts import build_user_prompt, number_evidence, system_prompt
+from graphrag.generation.smalltalk import SmallTalk, detect_smalltalk, smalltalk_reply
 from graphrag.llm.client import LLMClient, LLMError
 from graphrag.models import (
     CitedFact,
+    QueryAnalysis,
     QueryFilters,
     QueryResponse,
     RetrievalMode,
@@ -70,8 +72,11 @@ class AnswerGenerator:
         top_k: int | None = None,
         hops: int | None = None,
         filters: QueryFilters | None = None,
+        rerank: bool | None = None,
     ) -> QueryResponse:
-        result = await self.retriever.retrieve(question, mode, top_k, hops, filters)
+        if (kind := detect_smalltalk(question)) is not None:
+            return await self._smalltalk(question, kind, mode)
+        result = await self.retriever.retrieve(question, mode, top_k, hops, filters, rerank)
         chunks, facts = number_evidence(result)
         language = result.analysis.language
         base = {
@@ -112,4 +117,21 @@ class AnswerGenerator:
             invalid_citations=checked.invalid,
             uncited_sentences=checked.uncited_sentences,
             timings_ms=timings,
+        )
+
+    async def _smalltalk(self, question: str, kind: SmallTalk, mode: RetrievalMode) -> QueryResponse:
+        """Answer greetings / thanks / help directly: no retrieval, no LLM, no evidence."""
+        language = "hi" if any("\u0900" <= ch <= "\u097f" for ch in question) else "en"
+        try:
+            documents = len(await asyncio.to_thread(self.retriever.graph_store.document_sources))
+        except Exception:  # noqa: BLE001 - the document count is only a nicety
+            documents = None
+        return QueryResponse(
+            question=question,
+            answer=smalltalk_reply(kind, language, documents),
+            language=language,
+            mode=mode,
+            grounded=False,
+            intent="smalltalk",
+            analysis=QueryAnalysis(language=language),
         )

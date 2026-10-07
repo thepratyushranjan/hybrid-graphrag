@@ -78,6 +78,8 @@ services:
     command: ["streamlit", "run", "ui/streamlit_app.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true", "--browser.gatherUsageStats=false"]
     environment:
       API_URL: http://api:8000
+      # links opened by the browser (source documents) must use the host-visible address
+      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8000}
     ports:
       - "${UI_PORT:-8501}:8501"
     depends_on:

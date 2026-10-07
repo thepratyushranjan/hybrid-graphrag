@@ -163,3 +163,30 @@ def test_explicit_filters_are_never_dropped(retriever: HybridRetriever) -> None:
     result = asyncio.run(retriever.retrieve("What does Clause 7.2 impact?", "hybrid",
                                             filters=QueryFilters(source="no_such_file.pdf")))
     assert result.analysis.filters == {"source": "no_such_file.pdf"} and result.chunks == []
+
+
+def test_reranker_can_be_switched_off_per_request(retriever: HybridRetriever) -> None:
+    class CountingReranker:
+        calls = 0
+
+        def rerank(self, question, items):  # type: ignore[no-untyped-def]
+            CountingReranker.calls += 1
+            return items
+
+        def relevance(self, question, texts):  # type: ignore[no-untyped-def]
+            CountingReranker.calls += 1
+            return [0.5] * len(texts)
+
+    retriever.reranker = CountingReranker()  # type: ignore[assignment]
+    asyncio.run(retriever.retrieve("What does Clause 7.2 impact?", "hybrid", rerank=False))
+    assert CountingReranker.calls == 0
+    asyncio.run(retriever.retrieve("What does Clause 7.2 impact?", "hybrid"))
+    assert CountingReranker.calls > 0
+
+
+def test_smalltalk_skips_retrieval_and_llm(retriever: HybridRetriever) -> None:
+    llm = FakeLLM(RESULT)
+    response = asyncio.run(AnswerGenerator(retriever.settings, retriever, llm).answer("Hi!"))  # type: ignore[arg-type]
+    assert response.intent == "smalltalk" and not response.grounded
+    assert response.chunks == [] and response.graph_facts == [] and response.citations == []
+    assert llm.calls == 0 and response.answer.startswith("Hi!")

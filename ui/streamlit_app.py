@@ -1,5 +1,6 @@
-"""Hybrid GraphRAG chat UI: grounded answers with [C#] (text) / [G#] (graph) citations, the evidence behind
-them, and document ingestion. Talks to the FastAPI service only (POST /query, POST /ingest, GET /health)."""
+"""Hybrid GraphRAG chat UI: grounded answers with clickable [C#] (text) / [G#] (graph) citations, the evidence
+behind them, an interactive subgraph and per-stage timings. Talks to the FastAPI service only, never to the
+databases directly."""
 
 import os
 import time
@@ -8,8 +9,12 @@ from typing import Any
 import streamlit as st
 
 from api_client import ApiClient
+from components.evidence import render_answer, render_chunk_cards, render_citations, render_triples
+from components.graph_view import render_subgraph
+from components.timing import render_timing
 
-API_URL = os.getenv("API_URL", "http://localhost:8000")
+API_URL = os.getenv("API_URL", "http://localhost:8000")  # container-to-container
+PUBLIC_API_URL = os.getenv("PUBLIC_API_URL", "http://localhost:8000").rstrip("/")  # links opened by the browser
 
 st.set_page_config(page_title="Hybrid GraphRAG", page_icon="🕸️", layout="wide")
 client = ApiClient(API_URL)
@@ -18,53 +23,24 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 
-# ---------- rendering helpers ----------
+# ---------- rendering ----------
 
-def render_chunks(chunks: list[dict[str, Any]], used: set[str]) -> None:
-    with st.expander(f"📄 Text excerpts ({len(chunks)})"):
-        if not chunks:
-            st.caption("No text excerpts.")
-        for c in chunks:
-            item, ch = c["item"], c["item"]["chunk"]
-            where = f"page {ch['page']}" if ch.get("page") else (ch.get("section") or "")
-            badges = " · ".join(
-                x for x in (
-                    "✅ cited" if c["cite_id"] in used else "",
-                    "+".join(item.get("found_by", [])),
-                    f"rerank {item['rerank_score']:.2f}" if item.get("rerank_score") is not None else "",
-                    ch.get("language", ""),
-                    ch["extraction_method"].replace("_", " ") if ch.get("extraction_method") != "text" else "",
-                ) if x
-            )
-            with st.container(border=True):
-                st.markdown(f"**[{c['cite_id']}]** `{ch['source']}` · {where}  \n{badges}")
-                st.write(ch["text"])
-
-
-def render_facts(facts: list[dict[str, Any]], aggregates: list[dict[str, Any]], used: set[str]) -> None:
-    with st.expander(f"🕸️ Graph relationships ({len(facts)})"):
-        if aggregates:
-            st.markdown("**Counts**")
-            st.dataframe([{"Entity": a["name"], "Count": a["count"]} for a in aggregates], hide_index=True)
-        if not facts:
-            st.caption("No graph relationships.")
-            return
-        st.dataframe(
-            [
-                {
-                    "": f["cite_id"] + (" ✅" if f["cite_id"] in used else ""),
-                    "Subject": f["fact"]["subject"],
-                    "Relation": f["fact"]["predicate"],
-                    "Object": f["fact"]["object"],
-                    "Hops": f["fact"]["hops"],
-                    "From": ", ".join(f["support"]) or "-",
-                    "Evidence": f["fact"]["evidence"],
-                }
-                for f in facts
-            ],
-            width="stretch",
-            hide_index=True,
-        )
+def render_ingest_result(data: dict[str, Any]) -> None:
+    if data.get("ocr_pages") or data.get("ocr_images"):
+        st.caption(f"🔍 OCR: {data.get('ocr_pages', 0)} scanned page(s), {data.get('ocr_images', 0)} image(s)")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Chunks", data.get("chunks", 0))
+    c2.metric("Entities", data.get("entities", 0))
+    c3.metric("Relations", data.get("relations", 0))
+    status = data.get("graph_status", "")
+    if status == "complete":
+        st.caption(f"🕸️ Graph complete · {data.get('dropped_relations', 0)} relations rejected by checks")
+    else:
+        st.warning(f"Graph {status}", icon="⚠️")
+    if data.get("similar_documents"):
+        st.caption("🔗 Similar documents: " + ", ".join(data["similar_documents"]))
+    st.caption(f"Pages: {data.get('pages')} · Languages: {data.get('languages')} · "
+               f"Extraction: {data.get('extraction_methods')}")
 
 
 def render_analysis(data: dict[str, Any]) -> None:
@@ -81,60 +57,40 @@ def render_analysis(data: dict[str, Any]) -> None:
     if a.get("time_range"):
         t = a["time_range"]
         parts.append(f"time: {t['expression']} ({t.get('start') or '…'} → {t.get('end') or '…'})")
-    total = data.get("timings_ms", {}).get("total")
-    if total:
-        parts.append(f"{total / 1000:.1f}s")
     st.caption(" · ".join(parts))
     for dropped in a.get("dropped_filters", []):
         st.caption(f"⚠️ Filter ignored: {dropped}")
 
 
-def render_ingest_result(data: dict[str, Any]) -> None:
-    if data.get("ocr_pages") or data.get("ocr_images"):
-        st.caption(f"🔍 OCR: {data.get('ocr_pages', 0)} scanned page(s), {data.get('ocr_images', 0)} image(s)")
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Chunks", data.get("chunks", 0))
-    c2.metric("Entities", data.get("entities", 0))
-    c3.metric("Relations", data.get("relations", 0))
-    status = data.get("graph_status", "")
-    if status == "complete":
-        st.caption(f"🕸️ Graph complete · {data.get('dropped_relations', 0)} relations rejected by checks")
-    else:
-        st.warning(f"Graph {status}", icon="⚠️")
-    if data.get("similar_documents"):
-        st.caption("🔗 Similar documents: " + ", ".join(data["similar_documents"]))
-    st.caption(
-        f"Pages: {data.get('pages')} · Languages: {data.get('languages')} · "
-        f"Extraction: {data.get('extraction_methods')}"
-    )
-    with st.expander("Raw response"):
-        st.json(data)
-
-
-def render_assistant(payload: dict[str, Any]) -> None:
+def render_assistant(payload: dict[str, Any], msg: int) -> None:
     if payload.get("error"):
         st.warning(payload["error"])
         return
-    st.markdown(payload["answer"])
-    if not payload.get("grounded"):
-        st.caption("ℹ️ No LLM answer: the knowledge base had no relevant evidence, or the LLM is unavailable.")
-    used = {c["cite_id"] for c in payload.get("citations", [])}
-    if payload.get("citations"):
-        with st.expander(f"🔗 Sources cited ({len(used)})", expanded=True):
-            for c in payload["citations"]:
-                if c["kind"] == "chunk":
-                    where = f"page {c['page']}" if c.get("page") else (c.get("section") or "")
-                    st.markdown(f"**[{c['cite_id']}]** `{c['source']}` · {where} — {c['text'][:220]}…")
-                else:
-                    st.markdown(f"**[{c['cite_id']}]** {c['text']}  \n<small>“{c.get('evidence', '')}”</small>",
-                                unsafe_allow_html=True)
+    citations = payload.get("citations", [])
+    used = {c["cite_id"] for c in citations}
+    render_answer(payload["answer"], citations, msg)
+    if payload.get("intent") == "smalltalk":
+        return  # greetings / thanks / help: nothing was searched
+
+    if not citations:
+        # nothing from the knowledge base was used: don't flood the chat with evidence the answer ignored
+        searched = len(payload.get("chunks", [])) + len(payload.get("graph_facts", []))
+        reason = "no relevant evidence was found" if not payload.get("grounded") else "the answer cites no sources"
+        st.caption(f"ℹ️ Nothing from the knowledge base was used ({reason}; {searched} items searched).")
+        return
+
     if payload.get("invalid_citations"):
         st.caption("⚠️ Removed citations that weren't in the evidence: " + ", ".join(payload["invalid_citations"]))
     if payload.get("uncited_sentences"):
         st.caption(f"⚠️ {len(payload['uncited_sentences'])} sentence(s) without a citation")
+    render_citations(citations, msg, PUBLIC_API_URL)
     render_analysis(payload)
-    render_chunks(payload.get("chunks", []), used)
-    render_facts(payload.get("graph_facts", []), payload.get("aggregates", []), used)
+    render_chunk_cards(payload.get("chunks", []), used, PUBLIC_API_URL)
+    render_triples(payload.get("graph_facts", []), payload.get("aggregates", []), used)
+    if payload.get("subgraph", {}).get("edges"):
+        with st.expander("🧭 Interactive subgraph"):
+            render_subgraph(payload["subgraph"], used, key=f"graph-{msg}")
+    render_timing(payload.get("timings_ms", {}))
 
 
 # ---------- sidebar ----------
@@ -143,24 +99,38 @@ with st.sidebar:
     st.header("⚙️ System")
     health = client.health()
     if health.data:
-        checks = health.data.get("checks", {})
-        for name, state in checks.items():
+        for name, state in health.data.get("checks", {}).items():
             st.markdown(f"{'🟢' if state == 'ok' else '🔴'} **{name}** — {state}")
         llm, emb = health.data.get("llm", {}), health.data.get("embedding", {})
-        st.caption(f"LLM: {llm.get('provider')} / {llm.get('model')}")
-        st.caption(f"Embeddings: {emb.get('provider')} / {emb.get('model')}")
+        st.caption(f"LLM: {llm.get('provider')} / {llm.get('model')}  \n"
+                   f"Embeddings: {emb.get('provider')} / {emb.get('model')}")
         for warning in health.data.get("warnings", []):
             st.warning(warning, icon="⚠️")
     else:
         st.error(health.error or "API unavailable")
-    if st.button("Refresh status", width="stretch"):
+
+    stats = client.stats()
+    if stats.ok and stats.data:
+        nodes, rels = stats.data["neo4j"]["nodes"], stats.data["neo4j"]["relationships"]
+        s1, s2, s3 = st.columns(3)
+        s1.metric("Documents", nodes.get("Document", 0))
+        s2.metric("Vectors", stats.data["qdrant"]["points"])
+        s3.metric("Entities", nodes.get("Entity", 0))
+        with st.expander("Database stats"):
+            st.markdown("**Nodes**")
+            st.dataframe([{"Label": k, "Count": v} for k, v in nodes.items()], hide_index=True)
+            st.markdown("**Relationships**")
+            st.dataframe([{"Type": k, "Count": v} for k, v in rels.items()], hide_index=True)
+            st.markdown("**Documents**")
+            for d in stats.data.get("documents", []):
+                st.markdown(f"- [{d['source']}]({PUBLIC_API_URL}/documents/{d['source']})")
+    if st.button("Refresh", width="stretch"):
         st.rerun()
 
     st.divider()
     st.header("📥 Ingest documents")
-    uploads = st.file_uploader(
-        "PDF, Markdown or text", type=["pdf", "md", "txt"], accept_multiple_files=True
-    )
+    uploads = st.file_uploader("PDF, Markdown or text · any language", type=["pdf", "md", "txt"],
+                               accept_multiple_files=True)
     if st.button("Ingest", disabled=not uploads, type="primary", width="stretch"):
         for upload in uploads or []:
             submitted = client.ingest(upload.name, upload.getvalue(), upload.type or "application/octet-stream")
@@ -187,12 +157,12 @@ with st.sidebar:
 
     st.divider()
     st.header("🔎 Retrieval")
-    mode = st.radio(
-        "Mode", ["hybrid", "vector", "graph"], horizontal=True,
-        help="Compare vector-only, graph-only and hybrid retrieval on the same question",
-    )
+    mode = st.radio("Mode", ["hybrid", "vector", "graph"], horizontal=True,
+                    help="Compare vector-only, graph-only and hybrid retrieval on the same question")
     top_k = st.slider("Text excerpts sent to the LLM", 1, 10, 4)
     hops = st.radio("Graph hops", [1, 2], index=1, horizontal=True)
+    rerank = st.toggle("Cross-encoder reranker", value=True,
+                       help="Rerank excerpts and graph facts with the multilingual cross-encoder")
     if st.button("Clear chat", width="stretch"):
         st.session_state.messages = []
         st.rerun()
@@ -203,26 +173,23 @@ with st.sidebar:
 st.title("🕸️ Hybrid GraphRAG")
 st.caption("Answers grounded in Qdrant vector search + Neo4j graph traversal, with citations.")
 
-for msg in st.session_state.messages:
+for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
         if msg["role"] == "user":
             st.markdown(msg["content"])
         else:
-            render_assistant(msg["content"])
+            render_assistant(msg["content"], i)
 
 if question := st.chat_input("Ask a question about your documents…"):
     st.session_state.messages.append({"role": "user", "content": question})
     with st.chat_message("user"):
         st.markdown(question)
-
     with st.chat_message("assistant"):
         with st.spinner("Retrieving from Qdrant + Neo4j and writing the answer…"):
-            result = client.query(question, top_k=top_k, hops=hops, mode=mode)
+            result = client.query(question, top_k=top_k, hops=hops, mode=mode, rerank=rerank)
         if result.ok and result.data is not None:
             payload: dict[str, Any] = result.data
-        elif result.not_implemented:
-            payload = {"error": f"{result.error}."}
         else:
             payload = {"error": result.error or "Query failed"}
-        render_assistant(payload)
+        render_assistant(payload, len(st.session_state.messages))
     st.session_state.messages.append({"role": "assistant", "content": payload})
