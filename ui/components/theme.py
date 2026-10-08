@@ -6,6 +6,18 @@ import streamlit as st
 # Five types exceed the 3-slot all-pairs limit, so every type also gets its own node shape.
 ENTITY_TYPES = ["Person", "Organization", "Location", "Event", "Concept"]
 SHAPES = {"Person": "dot", "Organization": "square", "Location": "triangle", "Event": "diamond", "Concept": "star"}
+# SQL-corpus node types reuse the five slots (same palette, same shapes) instead of adding colours
+SOCIAL_TYPES = {
+    "Account": "Person", "District": "Location", "Thana": "Location", "PoliceUnit": "Organization",
+    "Post": "Event", "Topic": "Event", "Incident": "Event",
+    "Category": "Concept", "SubCategory": "Concept", "Hashtag": "Concept", "Entity": "Concept",
+}
+
+
+def base_type(node_type: str | None) -> str | None:
+    return SOCIAL_TYPES.get(node_type or "", node_type)
+
+
 _SERIES = {
     "light": ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"],
     "dark": ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181"],
@@ -25,6 +37,7 @@ def mode() -> str:
 
 def type_color(entity_type: str | None) -> str:
     series = _SERIES[mode()]
+    entity_type = base_type(entity_type)
     return series[ENTITY_TYPES.index(entity_type)] if entity_type in ENTITY_TYPES else _INK[mode()]["muted"]
 
 

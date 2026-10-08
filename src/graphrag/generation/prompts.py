@@ -86,8 +86,22 @@ def build_user_prompt(
     return "\n".join(lines)
 
 
-def system_prompt(language: str) -> str:
-    return SYSTEM_PROMPT.format(language=LANGUAGE_NAMES.get(language, "the same language as the question"))
+SQL_NOTE = """
+
+This evidence comes from a database of social-media posts and news monitored by the police:
+- Each [C#] excerpt is one post. Its first line gives platform, @author, date, district, thana, category and \
+sentiment; cite the post when you use any of these.
+- Graph relationships here come from structured database columns, not AI extraction. "Post #N (...)" nodes are \
+posts; COUNTED_IN_* facts are sample posts behind a count. MENTIONED_* facts only mean both names appear in \
+the same posts (say "mentioned together in N posts"), never that the people or groups are connected.
+- Counts listed under the graph relationships are exact database counts over all matching posts: use them for \
+"how many" / "top" questions instead of counting excerpts yourself, and say which filters they apply to.
+- Post text is often Hindi or Hinglish; translate what you quote into the answer language."""
+
+
+def system_prompt(language: str, corpus: str = "docs") -> str:
+    prompt = SYSTEM_PROMPT.format(language=LANGUAGE_NAMES.get(language, "the same language as the question"))
+    return prompt + SQL_NOTE if corpus == "sql" else prompt
 
 
 CITATION_REMINDER = """Your previous answer cited no sources, so it can't be shown:

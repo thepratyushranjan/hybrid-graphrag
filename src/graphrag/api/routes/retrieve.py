@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from graphrag.api.deps import get_retriever
@@ -20,11 +20,19 @@ class RetrieveRequest(BaseModel):
     llm_provider: Literal["ollama", "openai", "gemini"] | None = Field(
         default=None, description="LLM for query analysis + answer (see GET /llm/providers); null = server default"
     )
+    corpus: Literal["docs", "sql"] = Field(
+        default="docs", description="docs = uploaded documents; sql = social-media posts loaded by POST /ingest/sql"
+    )
 
 
 @router.post("/retrieve", response_model=RetrievalResult)
 async def retrieve(
-    req: RetrieveRequest, retriever: Annotated[HybridRetriever, Depends(get_retriever)]
+    req: RetrieveRequest, request: Request, retriever: Annotated[HybridRetriever, Depends(get_retriever)]
 ) -> RetrievalResult:
     """Hybrid retrieval only (no answer generation). `mode` = vector | graph | hybrid, for comparing branches."""
+    if req.corpus == "sql":
+        sql_retriever = getattr(request.app.state, "sql_retriever", None)
+        if sql_retriever is None:
+            raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "The SQL corpus is not available")
+        return await sql_retriever.retrieve(req.question, req.mode, req.top_k, req.hops, req.filters, req.rerank)
     return await retriever.retrieve(req.question, req.mode, req.top_k, req.hops, req.filters, req.rerank)

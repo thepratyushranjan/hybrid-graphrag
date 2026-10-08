@@ -20,3 +20,6 @@ venv/
 
 # uploaded originals (kept so citations can link to them)
 data/uploads/
+
+# SQL dumps hold real monitoring data (names, handles, phone numbers): never commit them
+data/sql/

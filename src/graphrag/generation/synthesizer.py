@@ -4,6 +4,7 @@ import asyncio
 import logging
 import math
 import time
+from typing import Literal
 
 from graphrag.config import Settings
 from graphrag.generation.citation_validator import validate
@@ -23,6 +24,7 @@ from graphrag.models import (
     SubgraphNode,
 )
 from graphrag.retrieval.hybrid import HybridRetriever
+from graphrag.retrieval.social_retriever import SocialRetriever
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +75,13 @@ class ProviderUnavailable(LLMError):
     """The provider picked for a question can't be used (no key, not running, unknown model)."""
 
 
+class CorpusUnavailable(RuntimeError):
+    """corpus="sql" was asked for but the SQL retriever isn't set up."""
+
+
+Corpus = Literal["docs", "sql"]
+
+
 class AnswerGenerator:
     def __init__(
         self,
@@ -80,9 +89,11 @@ class AnswerGenerator:
         retriever: HybridRetriever,
         llm: LLMClient | None,
         registry: LLMRegistry | None = None,
+        sql_retriever: SocialRetriever | None = None,
     ) -> None:
         self.settings = settings
         self.retriever = retriever
+        self.sql_retriever = sql_retriever
         self.llm = llm  # default provider
         self.registry = registry
 
@@ -95,7 +106,13 @@ class AnswerGenerator:
         filters: QueryFilters | None = None,
         rerank: bool | None = None,
         llm_provider: str | None = None,
+        corpus: Corpus = "docs",
     ) -> QueryResponse:
+        retriever: HybridRetriever | SocialRetriever = self.retriever
+        if corpus == "sql":
+            if self.sql_retriever is None:
+                raise CorpusUnavailable("The SQL corpus is not available on this server")
+            retriever = self.sql_retriever
         if (kind := detect_smalltalk(question)) is not None:
             return await self._smalltalk(question, kind, mode)
         llm = self.llm
@@ -105,7 +122,7 @@ class AnswerGenerator:
             except LLMError as exc:
                 raise ProviderUnavailable(str(exc)) from exc
         # the same provider analyses the question and writes the answer; retrieval itself is provider-independent
-        result = await self.retriever.retrieve(question, mode, top_k, hops, filters, rerank, llm)
+        result = await retriever.retrieve(question, mode, top_k, hops, filters, rerank, llm)
         chunks, facts = number_evidence(result)
         language = result.analysis.language
         base = {
@@ -127,7 +144,7 @@ class AnswerGenerator:
         started = time.perf_counter()
         try:
             raw = await asyncio.to_thread(
-                llm.complete, system_prompt(language), user, self.settings.answer_max_tokens, 0.0
+                llm.complete, system_prompt(language, corpus), user, self.settings.answer_max_tokens, 0.0
             )
         except LLMError as exc:
             logger.error("Answer generation failed: %s", exc)
@@ -142,7 +159,7 @@ class AnswerGenerator:
             retry_user = user + "\n\n" + CITATION_REMINDER.format(answer=raw)
             try:
                 raw = await asyncio.to_thread(
-                    llm.complete, system_prompt(language), retry_user, self.settings.answer_max_tokens, 0.0
+                    llm.complete, system_prompt(language, corpus), retry_user, self.settings.answer_max_tokens, 0.0
                 )
                 checked = validate(raw, chunks, facts)
                 timings["generate_retry"] = round((time.perf_counter() - started) * 1000 - timings["generate"], 1)

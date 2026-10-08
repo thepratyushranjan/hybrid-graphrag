@@ -13,7 +13,9 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 
 from graphrag.ingestion.pipeline import IngestionPipeline
+from graphrag.ingestion.sql.pipeline import SqlIngestionPipeline
 from graphrag.models import DocMetadata, IngestJob
+from graphrag.models.social import SqlIngestJob
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +73,54 @@ class JobStore:
             self._update(job_id, status="completed", stage="done", result=result, errors=errors)
         except Exception as exc:  # noqa: BLE001 - a failed job is reported, never crashes the worker
             logger.exception("Ingestion job %s (%s) failed", job_id, job.filename)
+            self._update(job_id, status="failed", stage="failed", errors=[f"{exc.__class__.__name__}: {exc}"])
+        finally:
+            self._update(job_id, finished_at=datetime.now(UTC))
+
+    def shutdown(self) -> None:
+        self.executor.shutdown(wait=False, cancel_futures=True)
+
+
+class SqlJobStore:
+    """Background SQL-dump ingestion (parse + graph + ~10k embeddings takes minutes). One at a time."""
+
+    def __init__(self, pipeline: SqlIngestionPipeline) -> None:
+        self.pipeline = pipeline
+        self.jobs: OrderedDict[str, SqlIngestJob] = OrderedDict()
+        self.lock = threading.Lock()
+        self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="ingest-sql")
+
+    def submit(self, name: str, source: str | bytes) -> SqlIngestJob:
+        job = SqlIngestJob(job_id=uuid.uuid4().hex, source=name, created_at=datetime.now(UTC))
+        with self.lock:
+            self.jobs[job.job_id] = job
+            while len(self.jobs) > MAX_JOBS:
+                self.jobs.popitem(last=False)
+        self.executor.submit(self._run, job.job_id, source)
+        return job.model_copy()
+
+    def get(self, job_id: str) -> SqlIngestJob | None:
+        with self.lock:
+            job = self.jobs.get(job_id)
+            return job.model_copy() if job else None
+
+    def _update(self, job_id: str, **fields: object) -> None:
+        with self.lock:
+            job = self.jobs.get(job_id)
+            if job is not None:
+                for key, value in fields.items():
+                    setattr(job, key, value)
+
+    def _run(self, job_id: str, source: str | bytes) -> None:
+        job = self.get(job_id)
+        if job is None:
+            return
+        self._update(job_id, status="running", stage="starting", started_at=datetime.now(UTC))
+        try:
+            result = self.pipeline.ingest(source, job.source, progress=lambda stage: self._update(job_id, stage=stage))
+            self._update(job_id, status="completed", stage="done", result=result)
+        except Exception as exc:  # noqa: BLE001 - a failed job is reported, never crashes the worker
+            logger.exception("SQL ingestion job %s (%s) failed", job_id, job.source)
             self._update(job_id, status="failed", stage="failed", errors=[f"{exc.__class__.__name__}: {exc}"])
         finally:
             self._update(job_id, finished_at=datetime.now(UTC))

@@ -1,4 +1,4 @@
-.PHONY: env up down logs ps reset lock test seed search compare eval
+.PHONY: env up down logs ps reset lock test seed ingest-sql search compare eval
 
 UV_IMAGE := ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
@@ -31,6 +31,9 @@ test: env       ## run the test suite inside the api container (needs `make up`)
 
 seed:           ## ingest the sample documents in data/samples (needs `make up`)
 	docker compose exec api python scripts/seed.py
+
+ingest-sql:     ## load the SQL dump (data/sql/*.sql, see SQL_DUMP_PATH) into Neo4j + Qdrant `social_posts`
+	docker compose exec api python scripts/ingest_sql.py $(args)
 
 search:         ## vector search, e.g. make search q="road accident" args="--language hi"
 	docker compose exec api python scripts/search.py "$(q)" $(args)

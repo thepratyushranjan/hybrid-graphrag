@@ -43,6 +43,26 @@ def render_ingest_result(data: dict[str, Any]) -> None:
                f"Extraction: {data.get('extraction_methods')}")
 
 
+SQL_EXAMPLES = [
+    "बरेली में शराब के नशे में मारपीट वाली पोस्ट दिखाओ",
+    "Top 5 districts by negative CRIME posts",
+    "Which accounts posted the most about kidnapping in Deoria?",
+    "विकास यादव किन लोगों और संगठनों से जुड़े हैं?",
+    "What stance do posts take towards उत्तर प्रदेश पुलिस?",
+    "How many posts per platform in the last 7 days?",
+]
+
+
+def render_sql_ingest_result(data: dict[str, Any]) -> None:
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Posts", data.get("posts", 0))
+    c2.metric("Topics", data.get("topics", 0))
+    c3.metric("Entities", data.get("entities", 0))
+    st.caption(f"Accounts: {data.get('accounts')} · stances: {data.get('stances')} · vectors: {data.get('vectors')}")
+    if data.get("skipped"):
+        st.caption(f"Skipped rows: {data['skipped']}")
+
+
 def render_analysis(data: dict[str, Any]) -> None:
     a = data["analysis"]
     parts = [f"mode **{data['mode']}**", f"query type **{a['query_type']}**", f"language **{a['language']}**"]
@@ -56,6 +76,8 @@ def render_analysis(data: dict[str, Any]) -> None:
         parts.append("graph seeded from top chunks: " + ", ".join(seeds))
     if a.get("filters"):
         parts.append("filter: " + ", ".join(f"{k}={v}" for k, v in a["filters"].items()))
+    if a.get("group_by"):
+        parts.append("counted by: " + ", ".join(a["group_by"]))
     if a.get("time_range"):
         t = a["time_range"]
         parts.append(f"time: {t['expression']} ({t.get('start') or '…'} → {t.get('end') or '…'})")
@@ -118,6 +140,11 @@ with st.sidebar:
         s1.metric("Documents", nodes.get("Document", 0))
         s2.metric("Vectors", stats.data["qdrant"]["points"])
         s3.metric("Entities", nodes.get("Entity", 0))
+        sql = stats.data.get("sql", {})
+        q1, q2, q3 = st.columns(3)
+        q1.metric("SQL posts", sql.get("posts", 0))
+        q2.metric("Post vectors", sql.get("points", 0))
+        q3.metric("Topics", nodes.get("Topic", 0))
         with st.expander("Database stats"):
             st.markdown("**Nodes**")
             st.dataframe([{"Label": k, "Count": v} for k, v in nodes.items()], hide_index=True)
@@ -158,6 +185,33 @@ with st.sidebar:
                         st.error(error)
 
     st.divider()
+    st.header("🗄️ Load SQL data")
+    st.caption("A MySQL dump of monitored social-media posts → Neo4j graph + Qdrant `social_posts`. "
+               "Leave empty to load the server's dump (data/sql/).")
+    dump = st.file_uploader("MySQL dump (.sql)", type=["sql"])
+    if st.button("Load SQL dump", width="stretch"):
+        submitted = client.ingest_sql(dump.name, dump.getvalue()) if dump else client.ingest_sql()
+        if not submitted.ok or not submitted.data:
+            st.error(submitted.error)
+        else:
+            with st.status("SQL dump: queued", expanded=False) as box:
+                job = submitted.data
+                while job["status"] in ("queued", "running"):
+                    time.sleep(2)
+                    polled = client.sql_job(job["job_id"])
+                    if not polled.ok or not polled.data:
+                        break
+                    job = polled.data
+                    box.update(label=f"SQL dump: {job['stage']}")
+                if job["status"] == "completed":
+                    box.update(label=f"{job['source']} loaded in {job['result']['seconds']}s", state="complete")
+                    render_sql_ingest_result(job["result"])
+                else:
+                    box.update(label=f"SQL dump: {job['status']}", state="error")
+                    for error in job.get("errors", []):
+                        st.error(error)
+
+    st.divider()
     st.header("🤖 Answer model")
     providers = client.providers()
     usable = [p for p in (providers.data or {}).get("items", []) if p["available"]] if providers.ok else []
@@ -180,6 +234,9 @@ with st.sidebar:
 
     st.divider()
     st.header("🔎 Retrieval")
+    corpus = st.radio("Knowledge source", ["sql", "docs"], horizontal=True,
+                      format_func={"docs": "📄 Documents", "sql": "🗄️ SQL posts"}.get,
+                      help="Documents = uploaded PDF/Markdown/text; SQL posts = the social-media posts from the dump")
     mode = st.radio("Mode", ["hybrid", "vector", "graph"], horizontal=True,
                     help="Compare vector-only, graph-only and hybrid retrieval on the same question")
     top_k = st.slider("Text excerpts sent to the LLM", 1, 10, 4)
@@ -194,7 +251,16 @@ with st.sidebar:
 # ---------- chat ----------
 
 st.title("🕸️ Hybrid GraphRAG")
-st.caption("Answers grounded in Qdrant vector search + Neo4j graph traversal, with citations.")
+st.caption("Answers grounded in Qdrant vector search + Neo4j graph traversal, with citations. "
+           + ("Source: **SQL posts** (social-media monitoring data)." if corpus == "sql" else "Source: **documents**."))
+
+clicked: str | None = None
+if corpus == "sql" and not st.session_state.messages:
+    st.markdown("**Try:**")
+    cols = st.columns(2)
+    for i, example in enumerate(SQL_EXAMPLES):
+        if cols[i % 2].button(example, key=f"example-{i}", width="stretch"):
+            clicked = example
 
 for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
@@ -203,14 +269,15 @@ for i, msg in enumerate(st.session_state.messages):
         else:
             render_assistant(msg["content"], i)
 
-if question := st.chat_input("Ask a question about your documents…"):
+placeholder = "Ask about the posts (Hindi or English)…" if corpus == "sql" else "Ask a question about your documents…"
+if question := (st.chat_input(placeholder) or clicked):
     st.session_state.messages.append({"role": "user", "content": question})
     with st.chat_message("user"):
         st.markdown(question)
     with st.chat_message("assistant"):
         with st.spinner("Retrieving from Qdrant + Neo4j and writing the answer…"):
             result = client.query(question, top_k=top_k, hops=hops, mode=mode, rerank=rerank,
-                                  llm_provider=llm_provider)
+                                  llm_provider=llm_provider, corpus=corpus)
         if result.ok and result.data is not None:
             payload: dict[str, Any] = result.data
         else:

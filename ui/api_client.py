@@ -26,7 +26,7 @@ class ApiClient:
         except httpx.HTTPError as exc:
             return ApiResult(ok=False, error=f"Cannot reach API at {self.base_url}: {exc}")
 
-        if resp.status_code == 405 or (resp.status_code == 404 and not path.startswith(("/ingest/", "/documents/"))):
+        if resp.status_code == 405 or (resp.status_code == 404 and not path.startswith(("/ingest", "/documents/"))):
             return ApiResult(ok=False, not_implemented=True, error=f"{method} {path} is not implemented yet")
         try:
             body = resp.json()
@@ -51,14 +51,22 @@ class ApiClient:
 
     def query(
         self, question: str, top_k: int, hops: int, mode: str = "hybrid", rerank: bool = True,
-        llm_provider: str | None = None,
+        llm_provider: str | None = None, corpus: str = "docs",
     ) -> ApiResult:
         return self._request(
             "POST",
             "/query",
             json={"question": question, "top_k": top_k, "hops": hops, "mode": mode, "rerank": rerank,
-                  "llm_provider": llm_provider},
+                  "llm_provider": llm_provider, "corpus": corpus},
         )
+
+    def ingest_sql(self, filename: str | None = None, content: bytes | None = None) -> ApiResult:
+        """Queues a SQL-dump ingest; without a file the server loads its SQL_DUMP_PATH."""
+        files = {"file": (filename, content, "application/sql")} if filename and content else None
+        return self._request("POST", "/ingest/sql", files=files)
+
+    def sql_job(self, job_id: str) -> ApiResult:
+        return self._request("GET", f"/ingest/sql/{job_id}")
 
     def providers(self) -> ApiResult:
         return self._request("GET", "/llm/providers")

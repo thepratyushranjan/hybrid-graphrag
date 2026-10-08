@@ -65,6 +65,8 @@ class QueryAnalysis(BaseModel):
     filters: dict[str, str] = Field(default_factory=dict)
     time_range: TimeFilter | None = None  # from a time expression in the question
     dropped_filters: list[str] = Field(default_factory=list)  # filters removed because they matched nothing
+    group_by: list[str] = Field(default_factory=list)  # SQL corpus aggregation: district / sentiment / account ...
+    top_n: int | None = None  # SQL corpus aggregation: "top 5 ..."
 
     @property
     def entity_ids(self) -> list[str]:
@@ -148,6 +150,17 @@ class QueryFilters(BaseModel):
     language: str | None = None  # ISO code, e.g. "hi"
     date_from: date | None = None  # chunk date mentions must overlap [date_from, date_to]
     date_to: date | None = None
+    # SQL corpus only (corpus="sql"): exact post filters
+    district: str | None = None
+    platform: str | None = None
+    sentiment: Literal["negative", "neutral", "positive"] | None = None
+    category: str | None = None  # broad category, e.g. "CRIME"
+    sub_category: str | None = None  # e.g. "MURDER"
+
+    def social(self) -> dict[str, str]:
+        fields = {"district": self.district, "platform": self.platform, "sentiment": self.sentiment,
+                  "category": self.category, "sub_category": self.sub_category}
+        return {k: v for k, v in fields.items() if v}
 
     def exact(self) -> dict[str, str]:
         return {k: v for k, v in {"source": self.source, "doc_type": self.doc_type, "language": self.language}.items() if v}

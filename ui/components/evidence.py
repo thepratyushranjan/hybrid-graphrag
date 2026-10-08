@@ -31,7 +31,18 @@ def render_answer(answer: str, citations: list[dict[str, Any]], msg: int) -> Non
 
 
 def doc_link(public_api: str, source: str, page: int | None) -> str:
+    if source.startswith(("http://", "https://")):  # SQL corpus: the post's own URL
+        return source
     return f"{public_api}/documents/{source}" + (f"#page={page}" if page else "")
+
+
+def _label(source: str, metadata: dict[str, Any] | None) -> str:
+    """Posts are shown as "twitter · @author · 2026-10-03" instead of their URL."""
+    if not metadata or "platform" not in metadata:
+        return source
+    parts = [metadata["platform"], f"@{metadata['author']}" if metadata.get("author") else "",
+             (metadata.get("posted_at") or "")[:10]]
+    return " · ".join(p for p in parts if p)
 
 
 def render_citations(citations: list[dict[str, Any]], msg: int, public_api: str) -> None:
@@ -78,6 +89,7 @@ def render_chunk_cards(chunks: list[dict[str, Any]], used: set[str], public_api:
         for c in chunks:
             item, ch = c["item"], c["item"]["chunk"]
             where = f"page {ch['page']}" if ch.get("page") else (ch.get("section") or "").split(" > ")[-1]
+            post = ch.get("doc_type") == "post"
             found = " + ".join(item.get("found_by", [])) or "-"
             scores = [f"found by **{found}**"]
             if item.get("vector_score") is not None:
@@ -89,11 +101,15 @@ def render_chunk_cards(chunks: list[dict[str, Any]], used: set[str], public_api:
             meta = [x for x in (ch.get("language"), ", ".join(ch.get("dates", [])[:3]),
                                 ch["extraction_method"].replace("_", " ") if ch.get("extraction_method") != "text" else "")
                     if x]
+            if post:
+                md = ch.get("metadata", {})
+                meta = [x for x in (md.get("district"), md.get("category"), md.get("sentiment")) if x]
             url = doc_link(public_api, ch["source"], ch.get("page"))
             with st.container(border=True):
                 st.markdown(
                     f"**[{c['cite_id']}]** {'✅ cited · ' if c['cite_id'] in used else ''}"
-                    f'<a href="{escape(url)}" target="_blank">{escape(ch["source"])}</a> · {escape(where)}  \n'
+                    f'<a href="{escape(url)}" target="_blank">{escape(_label(ch["source"], ch.get("metadata")))}</a>'
+                    f' · {escape(where)}  \n'
                     + " · ".join(scores)
                     + (f"  \n<small>{escape(' · '.join(meta))}</small>" if meta else ""),
                     unsafe_allow_html=True,

@@ -8,7 +8,7 @@ from typing import Any
 import streamlit as st
 from pyvis.network import Network
 
-from components.theme import ENTITY_TYPES, SHAPES, ink, type_color
+from components.theme import ENTITY_TYPES, SHAPES, base_type, ink, type_color
 
 
 _UNSAFE = re.compile(r"[<>]")
@@ -42,7 +42,7 @@ def render_subgraph(subgraph: dict[str, Any], used: set[str], key: str) -> None:
     for n in nodes:
         name = _safe(n["name"])
         label = name if len(name) <= 28 else name[:26] + "…"
-        net.add_node(_safe(n["id"]), label=label, shape=SHAPES.get(n.get("type") or "", "dot"), size=20,
+        net.add_node(_safe(n["id"]), label=label, shape=SHAPES.get(base_type(n.get("type")) or "", "dot"), size=20,
                      color=type_color(n.get("type")), title=f'{_safe(n.get("type") or "Entity")}: {name}',
                      font={"color": ink("primary"), "size": 20})
     # one edge per direction between a pair: parallel facts (SUPPLIES, IMPACTS, ...) would otherwise pile up
@@ -63,7 +63,7 @@ def render_subgraph(subgraph: dict[str, Any], used: set[str], key: str) -> None:
                      font={"color": ink("secondary"), "size": 15, "strokeWidth": 3,
                            "strokeColor": ink("surface"), "align": "middle"},
                      arrows={"to": {"enabled": True, "scaleFactor": 0.6}}, smooth={"type": "curvedCW", "roundness": 0.15})
-    st.markdown(_legend(sorted({n.get("type") or "" for n in nodes})), unsafe_allow_html=True)
+    st.markdown(_legend(sorted({base_type(n.get("type")) or "" for n in nodes})), unsafe_allow_html=True)
     st.caption("Drag nodes, scroll to zoom, hover for details. Thick edges are cited in the answer.")
     # A data: URL gets an opaque origin, so the graph page can't reach the Streamlit app (defence in depth on
     # top of _safe); the vis.js library is inlined, so it also works offline.

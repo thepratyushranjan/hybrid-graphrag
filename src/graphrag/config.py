@@ -106,6 +106,12 @@ class Settings(BaseSettings):
     rerank_candidates: int = Field(default=20, ge=1)
     context_token_budget: int = Field(default=3000, ge=200)
 
+    # SQL corpus: social-media posts from a MySQL dump (analyzed_data + lookup tables), chat with corpus="sql"
+    sql_collection_name: str = "social_posts"
+    sql_dump_path: str = "/app/data/sql/sample_latest_100_data.sql"
+    sql_ingest_limit: int = Field(default=0, ge=0)  # 0 = every post; set e.g. 2000 for a quick demo ingest
+    sql_post_chars: int = Field(default=1200, ge=200)  # post text kept per vector / prompt excerpt
+
     # Generation
     # Below this relevance (0-1, cross-encoder) for every chunk and fact, the LLM is skipped and the answer is
     # "not found in the knowledge base" instead of a guess.

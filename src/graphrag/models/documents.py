@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-DocType = Literal["pdf", "md", "txt"]
+DocType = Literal["pdf", "md", "txt", "post"]  # post = a social-media post from the SQL corpus
 # text: native text layer | ocr_page: whole page was a scan | text+ocr_image: text layer plus OCR'd images
 # ocr_legacy_font: page used a legacy Hindi font (Kruti Dev...), so its text layer was gibberish and it was OCR'd
 ExtractionMethod = Literal["text", "ocr_page", "ocr_legacy_font", "text+ocr_image"]

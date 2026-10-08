@@ -48,8 +48,10 @@ def _match(filters: dict[str, str | int]) -> models.Filter | None:
 
 
 class QdrantStore:
-    def __init__(self, settings: Settings) -> None:
-        self.collection_name = settings.collection_name
+    keyword_indexes: tuple[str, ...] = KEYWORD_INDEXES
+
+    def __init__(self, settings: Settings, collection_name: str | None = None) -> None:
+        self.collection_name = collection_name or settings.collection_name
         self.dim = settings.embedding_dim
         self.client = QdrantClient(url=settings.qdrant_url, api_key=settings.qdrant_api_key or None)
 
@@ -81,7 +83,7 @@ class QdrantStore:
 
     def _ensure_indexes(self, existing: set[str]) -> None:
         for fields, schema in (
-            (KEYWORD_INDEXES, models.PayloadSchemaType.KEYWORD),
+            (self.keyword_indexes, models.PayloadSchemaType.KEYWORD),
             (INTEGER_INDEXES, models.PayloadSchemaType.INTEGER),
             (DATETIME_INDEXES, models.PayloadSchemaType.DATETIME),
         ):
@@ -123,6 +125,22 @@ class QdrantStore:
                 wait=True,
             )
         return removed
+
+    def upsert(self, chunks: list[Chunk], vectors: list[list[float]], extra: list[dict] | None = None) -> None:
+        """Plain upsert (no stale-point cleanup); `extra` adds filterable payload fields per point."""
+        if len(chunks) != len(vectors):
+            raise VectorStoreError(f"{len(chunks)} chunks but {len(vectors)} vectors")
+        extra = extra or [{} for _ in chunks]
+        for start in range(0, len(chunks), UPSERT_BATCH):
+            end = start + UPSERT_BATCH
+            self.client.upsert(
+                self.collection_name,
+                points=[
+                    models.PointStruct(id=point_id(c.chunk_id), vector=v, payload={**c.model_dump(mode="json"), **x})
+                    for c, v, x in zip(chunks[start:end], vectors[start:end], extra[start:end], strict=True)
+                ],
+                wait=True,
+            )
 
     def search(
         self,
@@ -168,3 +186,18 @@ class QdrantStore:
         points = self.client.retrieve(self.collection_name, ids=[point_id(c) for c in chunk_ids], with_payload=True)
         by_id = {p.payload["chunk_id"]: Chunk.model_validate(p.payload) for p in points if p.payload}
         return [by_id[c] for c in chunk_ids if c in by_id]
+
+
+# SQL corpus: one point per post, with the post's structured fields as filterable payload
+SOCIAL_KEYWORD_INDEXES = (
+    "district", "thana", "platform", "sentiment", "broad_category", "sub_category", "topic_id", "author", "entity_ids",
+)
+
+
+class SocialPostStore(QdrantStore):
+    """The `social_posts` collection (SQL_COLLECTION_NAME), separate from the document chunks."""
+
+    keyword_indexes = KEYWORD_INDEXES + SOCIAL_KEYWORD_INDEXES
+
+    def __init__(self, settings: Settings) -> None:
+        super().__init__(settings, settings.sql_collection_name)

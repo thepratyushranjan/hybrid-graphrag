@@ -168,6 +168,36 @@ All settings are environment variables (`.env`, see `.env.example` for every opt
 | `TOP_K` / `GRAPH_HOPS` / `MAX_FACTS` / `RERANK_ENABLED` | 4 / 2 / 20 / `true` | Excerpts and facts sent to the LLM, graph depth, reranking |
 | `SIMILAR_DOCS_MIN_SCORE` | 0.90 | `SIMILAR_TO` threshold (e5: related docs ≈ 0.93, unrelated ≈ 0.87) |
 | `MIN_EVIDENCE_SCORE` | 0.05 | Below this relevance for everything, answer "not found" without the LLM |
+| `SQL_DUMP_PATH` / `SQL_COLLECTION_NAME` | `/app/data/sql/sample_latest_100_data.sql` / `social_posts` | SQL corpus: the dump `make ingest-sql` loads, and its Qdrant collection |
+| `SQL_INGEST_LIMIT` / `SQL_POST_CHARS` | 0 (all) / 1200 | Newest N posts only (quick demos); post text kept per vector and prompt excerpt |
+
+## SQL corpus: how a question is answered
+
+`SocialRetriever` (`retrieval/social_retriever.py`) mirrors the document retriever and returns the same
+`RetrievalResult`, so prompts, citation checks, the subgraph view and the UI are shared.
+
+1. **Analysis** (`SocialQueryAnalyzer`, no LLM). The question's 1–5-word phrases are matched (longest first) against
+   an in-memory index of the graph's names: districts with Hindi and alternative names (`gazetteer.py`), categories,
+   sub-categories (plus the `keywords` table's Hindi/English keywords, used for counting questions only), thanas,
+   people/organisations, `@accounts` and `#hashtags`. Districts, categories, platforms, sentiment and time phrases
+   become **filters**; people, organisations, thanas, accounts and hashtags become **graph seeds**.
+   "how many / top / कितने / सबसे ज्यादा" means aggregation, and "per district / by account / प्लेटफॉर्म" sets the
+   group-by. The index is rebuilt when the number of posts changes.
+2. **Filter check.** If the filters together match no post in Qdrant, they are dropped one at a time (time,
+   sub-category, category, sentiment, platform, thana, district) and the UI says which.
+3. **Vector branch.** Qdrant `social_posts` search with the payload filters (keyword indexes on district, thana,
+   platform, sentiment, categories, author, topic, entity ids; datetime on the post time).
+4. **Graph branch** (fixed Cypher templates in `graph/social_store.py`):
+   - `entity_posts`: the newest posts linked to the seeds, within the filters
+   - `co_mentions` (2 hops): what else those posts mention, tag or are written by, with how many posts link both
+   - `post_context`: the full neighbourhood (topic, district, thana, category, people, accounts) of the top vector
+     hits and seed posts
+   - `aggregation`: the exact total plus top-N groups by district / thana / category / sub-category / account /
+     hashtag / topic / person / organisation / platform / sentiment / emotion / date. Each group becomes a citable
+     fact `(Deoria) -[MATCHING_POSTS]-> (240 posts)` with sample posts as evidence.
+5. **Bridge, fusion, rerank, budget** as for documents: the posts behind the graph facts are fetched from Qdrant,
+   fused with the vector hits (RRF + a boost per seed a post links to), reranked by the cross-encoder and cut to the
+   token budget. Counts always come first among the facts.
 
 ## Known limitations
 
